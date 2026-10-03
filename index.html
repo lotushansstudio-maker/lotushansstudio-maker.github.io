@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lotus</title>
+<meta name="description" content="Lotus — a quantitative finance portfolio. Particles gather out of noise into a lotus: a Kalman-filtered stem and rose-curve petals.">
+<meta property="og:title" content="Lotus">
+<meta property="og:description" content="Out of the mud, unstained. Out of the noise, a signal.">
+<meta property="og:image" content="preview.jpg">
+<meta name="theme-color" content="#040509">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Serif+SC:wght@300;400&family=Geist+Mono:wght@300;400&display=swap">
+<style>
+/* Layout: black ground, one sticky stage. Particles gather from noise into a Kalman-filter stem and a 3-D rose-curve lotus; drifters rest on it like dew. One language on screen at a time (EN default, 中 toggle). Every stage label sits on one margin, --m. Film grain and a vignette over everything. Single deliberate dark look. */
+:root{
+  --bg:#040509; --fg:#EEF1F7; --text:rgba(238,241,247,.72); --muted:rgba(140,147,166,.85); --faint:#232838; --rule:#1A1F2C;
+  --c1:#3F6FE0; --c2:#8FB2FF; --c3:#E6F0FF;
+  --serif-d:'Instrument Serif',Georgia,serif;
+  --cjk:'Noto Serif SC','Songti SC',serif;
+  --mono:'Geist Mono','IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --m:clamp(20px,4.5vw,64px);
+  color-scheme:dark;
+}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--serif-d)}
+:root[data-lang="zh"] body{font-family:var(--cjk)}
+:root:not([data-lang="zh"]) .l-zh{display:none!important}
+:root[data-lang="zh"] .l-en{display:none!important}
+a{color:inherit}
+a:focus-visible,button:focus-visible{outline:1px solid var(--c2);outline-offset:4px}
+sub{font-size:.66em}
+
+/* ---------- stage ---------- */
+#intro{position:relative;height:620vh}
+#stage{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;background:var(--bg);cursor:crosshair}
+#field,#lines{position:absolute;inset:0;width:100%;height:100%;display:block}
+#grain{position:absolute;inset:-50%;z-index:4;pointer-events:none;opacity:.07;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 1.2s steps(6) infinite}
+@keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}40%{transform:translate(2%,-3%)}60%{transform:translate(-2%,-1%)}80%{transform:translate(3%,3%)}100%{transform:translate(0,0)}}
+#vignette{position:absolute;inset:0;z-index:4;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+#progress{position:absolute;left:0;top:0;height:1px;width:0;background:linear-gradient(90deg,var(--c1),var(--c2),var(--c3));z-index:5;opacity:.7}
+.chrome{position:absolute;right:var(--m);top:calc(var(--m) - 10px + env(safe-area-inset-top,0px));z-index:6;display:flex;gap:18px;align-items:center}
+.chrome button{font:300 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;background:none;border:0;color:var(--muted);padding:10px 0;cursor:pointer}
+.chrome button:hover{color:var(--fg)}
+.lang b{font-weight:300;color:var(--fg)}
+
+/* masked line reveal: each .ln slides up out of its own mask, staggered by --i */
+.ln{display:block;overflow:hidden;padding-bottom:.08em}
+.ln > span{display:block;transform:translateY(calc((1 - clamp(0, var(--o, 0) * 1.6 - var(--i, 0) * .22, 1)) * 108%))}
+
+.label{position:absolute;left:var(--m);top:calc(var(--m) + env(safe-area-inset-top,0px));z-index:3;pointer-events:none;--o:1}
+.label .kicker{font:300 11px/1.4 var(--mono);letter-spacing:.26em;text-transform:uppercase;color:var(--muted)}
+.label h1{margin:10px 0 0;font:italic 400 clamp(64px,8vw,112px)/.9 var(--serif-d);letter-spacing:-.025em;color:var(--fg)}
+.label .hint{margin-top:18px;font:300 11px/1.6 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+
+#cue{position:absolute;right:var(--m);bottom:calc(var(--m) + env(safe-area-inset-bottom,0px));z-index:3;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:12px}
+.cue-txt{font:300 10px/1 var(--mono);letter-spacing:.26em;text-transform:uppercase;color:var(--muted)}
+.cue-txt.l-zh{writing-mode:vertical-rl;font:300 13px/1 var(--cjk);letter-spacing:.4em;text-transform:none}
+.cue-track{position:relative;width:1px;height:64px;background:var(--faint);overflow:hidden}
+.cue-dot{position:absolute;left:-2px;top:-6px;width:5px;height:5px;border-radius:50%;background:var(--c2);box-shadow:0 0 8px var(--c2);animation:cue 2.6s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes cue{0%{transform:translateY(0);opacity:0}15%{opacity:1}80%{opacity:1}100%{transform:translateY(76px);opacity:0}}
+
+.note{position:absolute;right:var(--m);top:50%;width:min(340px,30vw);opacity:0;pointer-events:none;z-index:3}
+.note .eq{margin:0;font:italic 400 clamp(24px,2.4vw,32px)/1.2 var(--serif-d);color:var(--fg)}
+.note .line{margin:14px 0 0;font:italic 400 17px/1.5 var(--serif-d);color:var(--text)}
+.note .line.l-zh{font:300 14px/1.9 var(--cjk);letter-spacing:.06em}
+.note .act{margin-top:18px;font:300 10px/1.4 var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--c2);opacity:.8}
+
+#fin-big{position:absolute;left:0;right:0;bottom:-3.4vw;margin:0;text-align:center;font:italic 400 31vw/1 var(--serif-d);letter-spacing:-.035em;white-space:nowrap;pointer-events:none;z-index:2;opacity:0;
+  background:linear-gradient(180deg,rgba(143,178,255,.2),rgba(143,178,255,0) 76%);-webkit-background-clip:text;background-clip:text;color:transparent}
+#fin-quote{position:absolute;left:var(--m);top:calc(var(--m) + env(safe-area-inset-top,0px));margin:0;width:min(320px,26vw);z-index:3;opacity:0;pointer-events:none}
+#fin-quote .ln > span{font:italic 400 clamp(20px,1.8vw,26px)/1.35 var(--serif-d);color:var(--text)}
+#fin-quote .l-zh .ln > span{font:300 clamp(15px,1.3vw,18px)/2 var(--cjk);letter-spacing:.14em}
+@media (max-width:820px){
+  .note{right:auto;left:var(--m);top:auto;bottom:calc(var(--m) + env(safe-area-inset-bottom,0px));width:calc(100% - 2 * var(--m))}
+  .note .eq{font-size:22px}
+  .note .act{display:none}
+  #fin-quote{width:calc(100% - 2 * var(--m) - 60px)}
+  #fin-big{bottom:14vh}
+}
+
+/* ---------- content ---------- */
+#content{padding-inline:var(--m);padding-block:0 56px;border-top:1px solid var(--rule);background:var(--bg)}
+.mast{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 24px;padding-block:22px;border-bottom:1px solid var(--rule)}
+.brand{font:italic 400 28px/1 var(--serif-d);text-decoration:none;display:flex;align-items:center;gap:10px}
+.brand .dot{width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--c3),var(--c2) 60%,var(--c1));box-shadow:0 0 12px rgba(143,178,255,.5)}
+nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 28px;font:300 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+nav a,nav button{text-decoration:none;padding-block:14px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;background:none;border:0;cursor:pointer}
+nav a:hover,nav button:hover{color:var(--fg)}
+.about{max-width:1180px;margin:0 auto;padding-block:clamp(64px,10vw,120px);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:20px 40px}
+.about .name{margin:0;font:italic 400 clamp(72px,12vw,168px)/.9 var(--serif-d);letter-spacing:-.025em;color:var(--fg)}
+.about .meta{display:flex;flex-direction:column;gap:10px;font:300 11px/1.4 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--muted);padding-bottom:1.2em}
+.series{max-width:1180px;margin:0 auto}
+.series-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 24px;padding-block:0 18px;border-bottom:1px solid var(--rule)}
+.series-head h3{margin:0;font:italic 400 clamp(28px,3vw,40px)/1.1 var(--serif-d)}
+.series-head h3 .l-zh{font:300 .8em/1.1 var(--cjk);letter-spacing:.24em;font-style:normal}
+.series-head p{margin:0;font:300 11px/1.5 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.view{display:grid;grid-template-columns:minmax(120px,auto) minmax(0,1fr) auto;gap:8px clamp(16px,3vw,40px);align-items:end;padding-block:clamp(20px,2.4vw,32px);border-bottom:1px solid var(--rule);text-decoration:none}
+.view .no{font:italic 400 clamp(84px,10vw,150px)/.78 var(--serif-d);letter-spacing:-.03em;color:var(--c2);opacity:.9}
+.view .t{min-width:0;padding-bottom:.45em}
+.view .t b{display:block;font:italic 400 clamp(24px,2.8vw,36px)/1.2 var(--serif-d)}
+.view .t b .l-zh{font:300 .86em/1.3 var(--cjk);letter-spacing:.08em;font-style:normal}
+.view .tags{display:block;margin-top:10px;font:300 11px/1.6 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.view .tags span:not(:last-child)::after{content:" · "}
+.view .go{font:300 11px/1.6 var(--mono);letter-spacing:.22em;text-transform:uppercase;white-space:nowrap;color:var(--muted);text-align:right;padding-bottom:1em}
+a.view:hover .t b,a.view:hover .go{color:var(--c2)}
+a.view:hover .no{color:var(--c3);opacity:1}
+.view.pending .no,.view.pending .t b{color:var(--faint)}
+footer{max-width:1180px;margin:88px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px 48px;font:italic 400 15px/1.7 var(--serif-d);color:var(--muted)}
+footer .l-zh{font:300 13px/1.9 var(--cjk);font-style:normal}
+footer strong{display:block;font:300 11px/1.4 var(--mono);font-style:normal;letter-spacing:.22em;text-transform:uppercase;color:var(--fg);margin-bottom:6px}
+footer a{color:var(--fg)}
+@media (max-width:640px){ .view{grid-template-columns:minmax(0,1fr)} .view .go{text-align:left;padding-bottom:0} }
+@media (prefers-reduced-motion: reduce){ #intro{height:100vh} #skip,#cue{display:none} .cue-dot,#grain{animation:none} .ln > span{transform:none} }
+</style>
+</head>
+<body>
+
+
+<section id="intro" aria-label="Lotus — Out of the Noise">
+  <div id="stage">
+    <canvas id="field" aria-hidden="true"></canvas>
+    <canvas id="lines" role="img" aria-label="Particles gather from noise into a glowing lotus. Move to stir them, click to send a shock."></canvas>
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="grain" aria-hidden="true"></div>
+    <div id="progress"></div>
+    <div class="chrome">
+      <button class="lang" type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en"><b>EN</b> / 中</span><span class="l-zh">EN / <b>中</b></span></button>
+      <button id="skip" type="button"><span class="l-en">Skip</span><span class="l-zh">跳过</span></button>
+    </div>
+
+    <div class="label cap-el" data-a="-1" data-b="0.06">
+      <span class="ln kicker"><span><span class="l-en">Quantitative Finance · Portfolio</span><span class="l-zh">量化金融作品集</span></span></span>
+      <h1 class="ln"><span>Lotus</span></h1>
+      <span class="ln hint"><span><span class="l-en">Move to stir</span><span class="l-zh">移动鼠标，搅动光点</span></span></span>
+    </div>
+    <div id="cue" class="cap-el" data-a="-1" data-b="0.05" aria-hidden="true">
+      <span class="cue-txt l-zh">向下滚动</span>
+      <span class="cue-track"><span class="cue-dot"></span></span>
+      <span class="cue-txt l-en">Scroll</span>
+    </div>
+
+    <div class="note cap-el" data-a="0.05" data-b="0.3">
+      <p class="ln eq" style="--i:0"><span>y<sub>t</sub> = x<sub>t</sub> + ε<sub>t</sub></span></p>
+      <p class="ln line l-en" style="--i:1"><span>Each grain of light is a noisy observation.</span></p>
+      <p class="ln line l-zh" style="--i:1"><span>每一粒光，都是一次带噪声的观测。</span></p>
+    </div>
+    <div class="note cap-el" data-a="0.29" data-b="0.57">
+      <p class="ln eq" style="--i:0"><span>x̂<sub>t</sub> = x̂<sub>t−1</sub> + K<sub>t</sub>(y<sub>t</sub> − x̂<sub>t−1</sub>)</span></p>
+      <p class="ln line l-en" style="--i:1"><span>A Kalman filter gathers the light; a smoother lets it settle.</span></p>
+      <p class="ln line l-zh" style="--i:1"><span>卡尔曼滤波把光聚成茎，平滑器让它舒展。</span></p>
+    </div>
+    <div class="note cap-el" data-a="0.56" data-b="0.85">
+      <p class="ln eq" style="--i:0"><span>r = |cos 4θ|</span></p>
+      <p class="ln line l-en" style="--i:1"><span>The same points open into a cup.</span></p>
+      <p class="ln line l-zh" style="--i:1"><span>同一组光点，开成一只杯。</span></p>
+      <p class="ln act" style="--i:2"><span><span class="l-en">Click anywhere to send a shock</span><span class="l-zh">点击任意处，制造一次冲击</span></span></p>
+    </div>
+    <p id="fin-big" class="cap-el" data-a="0.84" data-b="9" aria-hidden="true">Lotus</p>
+    <div id="fin-quote" class="cap-el" data-a="0.88" data-b="9">
+      <div class="l-en"><span class="ln" style="--i:0"><span>Out of the mud, unstained.</span></span><span class="ln" style="--i:1"><span>Out of the noise, a signal.</span></span></div>
+      <div class="l-zh"><span class="ln" style="--i:0"><span>出淤泥而不染。</span></span><span class="ln" style="--i:1"><span>从噪声里，提取信号。</span></span></div>
+    </div>
+  </div>
+</section>
+
+<main id="content">
+  <header class="mast">
+    <a class="brand" href="#content"><span class="dot" aria-hidden="true"></span>Lotus</a>
+    <nav aria-label="Main">
+      <a href="#works"><span class="l-en">Works</span><span class="l-zh">作品</span></a>
+      <a href="#about"><span class="l-en">About</span><span class="l-zh">关于</span></a>
+      <a href="https://github.com/lotushansstudio-maker">GitHub ↗</a>
+      <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">EN / 中</span><span class="l-zh">EN / 中</span></button>
+    </nav>
+  </header>
+
+  <section class="about" id="about">
+    <h2 class="name">Lotus</h2>
+    <div class="meta"><span>Quantitative Finance</span><span>State-space Models</span><span>Generative Visuals</span></div>
+  </section>
+
+  <section class="series" id="works">
+    <div class="series-head">
+      <h3><span class="l-en">Works</span><span class="l-zh">作品</span></h3>
+      <p><span class="l-en">Selected · 2026</span><span class="l-zh">精选 · 2026</span></p>
+    </div>
+    <div class="views">
+      <a class="view" data-i="0" href="https://github.com/lotushansstudio-maker/AssetPricing-Dashboard">
+        <span class="no">01</span>
+        <span class="t"><b><span class="l-en">Asset Pricing Dashboard</span><span class="l-zh">资产定价仪表盘</span></b>
+          <span class="tags"><span>[Method]</span><span>[Data]</span><span>HTML</span></span></span>
+        <span class="go">GitHub ↗</span>
+      </a>
+      <a class="view" data-i="1" href="#intro">
+        <span class="no">02</span>
+        <span class="t"><b><span class="l-en">Out of the Noise</span><span class="l-zh">出淤泥</span></b>
+          <span class="tags"><span>Kalman filter</span><span>Particles</span><span>Rose curve</span></span></span>
+        <span class="go"><span class="l-en">Opening ↑</span><span class="l-zh">本页开场 ↑</span></span>
+      </a>
+      <div class="view pending">
+        <span class="no">03</span>
+        <span class="t"><b><span class="l-en">[Next work]</span><span class="l-zh">[下一件作品]</span></b></span>
+        <span class="go"><span class="l-en">Soon</span><span class="l-zh">即将加入</span></span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div><strong>Lotus</strong>© 2026 · <a href="https://github.com/lotushansstudio-maker">github.com/lotushansstudio-maker</a></div>
+    <div><strong><span class="l-en">Opening</span><span class="l-zh">开场</span></strong><span class="l-en">Simulated observations, a Kalman-filtered and RTS-smoothed stem, rose-curve petals in 3-D.</span><span class="l-zh">光点为模拟观测，茎为卡尔曼滤波与 RTS 平滑器的估计路径，花瓣为三维空间中的玫瑰线。</span></div>
+  </footer>
+</main>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const intro = $('#intro'), stage = $('#stage');
+  const fc = $('#field'), fx = fc.getContext('2d');
+  const lc = $('#lines'), lx = lc.getContext('2d');
+  const prog = $('#progress'), skip = $('#skip');
+  const caps = Array.from(document.querySelectorAll('.cap-el'));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const soft = (t) => t * t * (3 - 2 * t);
+  const seg = (p, a, b) => clamp((p - a) / (b - a));
+  function rngf(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const rand = rngf(11);
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math.PI * rand());
+
+  // palette: speed → colour. slow cyan, middling violet, fast amber
+  const PAL = [[63, 111, 224], [143, 178, 255], [230, 240, 255]];
+  function col(t, a) {
+    t = clamp(t); const k = t < 0.5 ? 0 : 1, f = t < 0.5 ? t * 2 : (t - 0.5) * 2, A = PAL[k], B = PAL[k + 1];
+    return `rgba(${(A[0] + (B[0] - A[0]) * f) | 0},${(A[1] + (B[1] - A[1]) * f) | 0},${(A[2] + (B[2] - A[2]) * f) | 0},${a})`;
+  }
+
+  // ---------- the stem: a Kalman filter, then an RTS smoother looking back ----------
+  const KF = (() => {
+    const r = rngf(23), g = () => Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r());
+    const N = 200, est = [], Pf = [], Pp = [], xp = []; let x = 0, v = 0, xh = 0, P = 3; const q = 0.004, R = 1.2;
+    for (let i = 0; i < N; i++) {
+      v = 0.92 * v + 0.035 * g(); x += v;
+      const y = x + 0.9 * g() * (r() < 0.06 ? 3.5 : 1);
+      const xpred = xh, ppred = P + q; xp.push(xpred); Pp.push(ppred);
+      const K = ppred / (ppred + R); xh = xpred + K * (y - xpred); P = ppred * (1 - K); est.push(xh); Pf.push(P);
+    }
+    const sm = est.slice();
+    for (let i = N - 2; i >= 0; i--) { const C = Pf[i] / Pp[i + 1]; sm[i] = est[i] + C * (sm[i + 1] - xp[i + 1]); }
+    const end = sm[N - 1]; let span = 0; sm.forEach((e) => { span = Math.max(span, Math.abs(e - end)); });
+    return { N, sm: sm.map((e) => (e - end) / (span || 1)) };
+  })();
+
+  // ---------- the flower: three rings of petals in 3-D, seen from slightly above ----------
+  const RINGS = [
+    { n: 8, a0: 0.14, bend: -0.32, L: 1.0, off: 0, c: 0.5 },
+    { n: 8, a0: 0.55, bend: 0.28, L: 0.84, off: Math.PI / 8, c: 0.7 },
+    { n: 6, a0: 1.0, bend: 0.38, L: 0.6, off: 0.26, c: 0.9 }
+  ];
+  const VIEW = 0.38, CE = Math.cos(VIEW), SE = Math.sin(VIEW), R0 = 0.07;
+  function petalUnit(ring, i, sN, latF) {
+    // a petal: broad body, pointed tip; edges lift a little like a boat
+    const rg = RINGS[ring], phi = rg.off + i * 2 * Math.PI / rg.n, dx = Math.cos(phi), dz = Math.sin(phi);
+    const hw = 0.40 * Math.sin(Math.PI * Math.pow(sN, 0.72)) * (1 - 0.12 * sN), lat = latF * hw;
+    const a = rg.a0 + rg.bend * sN, along = (R0 + sN * (1 - R0)) * rg.L;
+    const X0 = along * Math.cos(a), Y0 = along * Math.sin(a), lift = 0.22 * latF * latF * hw * rg.L;
+    const X = dx * X0 - dz * lat * rg.L, Y = Y0 + lift, Z = dz * X0 + dx * lat * rg.L;
+    const y2 = Y * CE - Z * SE, z2 = Y * SE + Z * CE;
+    return [X, y2, 0.35 + 0.65 * clamp((z2 + 0.9) / 1.8)];
+  }
+
+  // ---------- layout ----------
+  let W = 0, H = 0, dpr = 1, L = {};
+  function layout() {
+    const wide = W > 820;
+    const cx = W / 2;
+    const R = wide ? Math.min(W * 0.17, H * 0.3) : Math.min(W * 0.4, H * 0.17);
+    const fy = wide ? H * 0.47 : H * 0.33;
+    const water = fy + R * 0.58;
+    const floor = wide ? H * 0.94 : H * 0.62;
+    const sway = wide ? Math.min(W * 0.07, 110) : W * 0.12;
+    L = { wide, cx, R, fy, water, floor, sway, top: fy + R * 0.12 };
+  }
+
+  // ---------- particles ----------
+  let P = [];
+  function seed() {
+    const n = Math.round(clamp(W * H / 140, 2600, 9000));
+    P = [];
+    for (let i = 0; i < n; i++) {
+      const role = rand() < 0.11 ? 0 : 1;
+      const q = { x: rand() * W, y: rand() * H, vx: 0, vy: 0, role, s: rand(), u: rand(), w: 0.6 + rand() * 0.9 };
+      if (role === 1) {
+        // pick a petal, weighted by ring size, then a point on it; a third of the points trace the outline
+        const pick = rand(), ring = pick < 0.42 ? 0 : pick < 0.78 ? 1 : 2, rg = RINGS[ring];
+        const edge = rand() < 0.42, sN = Math.pow(rand(), 0.85), latF = edge ? (rand() < 0.5 ? -1 : 1) : rand() * 2 - 1;
+        const [ux, uy, depth] = petalUnit(ring, Math.floor(rand() * rg.n), sN, latF);
+        Object.assign(q, { ring, edge, sN, ux, uy, depth, rc: rg.c + 0.2 * (1 - sN), ra: (edge ? 0.62 : 0.16) * (1 - 0.5 * sN) * depth });
+      }
+      P.push(q);
+    }
+    // ambient drifters: always wandering, briefly caught by the lotus, then let go
+    A = [];
+    const na = Math.round(clamp(W * H / 360, 1100, 3800));
+    for (let i = 0; i < na; i++) A.push({ x: rand() * W, y: rand() * H, vx: 0, vy: 0, st: 0, t: 0, cool: rand() * 3, k: -1, w: 0.5 + rand() * 0.8 });
+    // points on the petal outlines where drifting particles can come to rest
+    MAG = [];
+    const edges = P.filter((q) => q.role === 1 && q.edge);
+    for (let i = 0; i < edges.length && MAG.length < 220; i += Math.max(1, Math.floor(edges.length / 220))) MAG.push(edges[i]);
+  }
+  let A = [], MAG = [];
+  const TAKEN = new Uint8Array(400);
+  const BEAD = (() => {
+    const b = document.createElement('canvas'); b.width = b.height = 36; const x = b.getContext('2d');
+    const gr = x.createRadialGradient(18, 18, 0, 18, 18, 18);
+    gr.addColorStop(0, 'rgba(245,249,255,1)'); gr.addColorStop(0.12, 'rgba(230,240,255,0.9)'); gr.addColorStop(0.35, 'rgba(143,178,255,0.28)'); gr.addColorStop(1, 'rgba(63,111,224,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 36, 36); return b;
+  })();
+  function stemTarget(q, bottom, straight) {
+    const t = q.s, i = Math.min(KF.N - 1, Math.floor(t * (KF.N - 1)));
+    const w = lerp(5, 1.2, t);
+    return [L.cx + KF.sm[i] * L.sway * (1 - t * t) * (1 - 0.8 * straight) + (q.u - 0.5) * w, lerp(bottom, L.top, t)];
+  }
+
+  // ---------- interaction ----------
+  const mouse = { x: -1e4, y: -1e4, on: false, px: 0, py: 0 };
+  const shocks = [];
+  stage.addEventListener('pointermove', (e) => { const r = stage.getBoundingClientRect(); mouse.px = mouse.x; mouse.py = mouse.y; mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.on = true; });
+  stage.addEventListener('pointerleave', () => { mouse.on = false; mouse.x = mouse.y = -1e4; });
+  stage.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    let sigma = 2.5 + Math.abs(gauss()) * 1.6; if (rand() < 0.15) sigma += 2 + rand() * 3;
+    const R = 60 + sigma * 22;
+    P.concat(A).forEach((p) => { const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy) || 1; if (d < R) { const f = (1 - d / R) * sigma * 2.2; p.vx += dx / d * f + gauss(); p.vy += dy / d * f + gauss(); if (p.st !== undefined) { p.st = 0; p.cool = 1.5; } } });
+    shocks.push({ x, y, sigma, t: 0, R });
+  });
+
+  function flow(x, y, t) {
+    return Math.sin(x * 0.0021 + t * 0.21) * 2.1 + Math.cos(y * 0.0027 - t * 0.17) * 1.7 + Math.sin((x + y) * 0.0013 + t * 0.11) * 1.3;
+  }
+
+  // ---------- frame ----------
+  let time = 0, cur = 0, target_ = 0, lastT = 0, visible = true;
+  function step(dt) {
+    const p = cur;
+    const gather = ease(seg(p, 0.28, 0.5));
+    const bloom = ease(seg(p, 0.56, 0.8));
+    const noiseAmp = 1 - 0.85 * gather;
+    time += dt * 0.001;
+    const breath = 1 + 0.018 * Math.sin(time * 0.9) * bloom;
+    const bottom = lerp(L.floor, L.water, bloom);
+    fx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fx.globalCompositeOperation = 'source-over';
+    fx.fillStyle = `rgba(4,5,9,${lerp(0.16, 0.26, gather)})`; fx.fillRect(0, 0, W, H);
+    fx.globalCompositeOperation = 'lighter';
+    const mr = 130;
+    for (let i = 0; i < P.length; i++) {
+      const q = P[i];
+      const a = flow(q.x, q.y, time);
+      q.vx += Math.cos(a) * 0.09 * noiseAmp; q.vy += Math.sin(a) * 0.09 * noiseAmp;
+      if (rand() < 0.0006 * noiseAmp) { q.vx += gauss() * 3; q.vy += gauss() * 3; }
+      if (gather > 0) {
+        const st = stemTarget(q, bottom, bloom);
+        let tx = st[0], ty = st[1];
+        if (q.role === 1) { tx = lerp(st[0], L.cx + q.ux * L.R * breath, bloom); ty = lerp(st[1], L.fy - q.uy * L.R * breath, bloom); }
+        const k = 0.0032 + 0.012 * gather;
+        q.vx += (tx - q.x) * k * gather; q.vy += (ty - q.y) * k * gather;
+      }
+      if (mouse.on) {
+        const dx = q.x - mouse.x, dy = q.y - mouse.y, d2 = dx * dx + dy * dy;
+        if (d2 < mr * mr) { const d = Math.sqrt(d2) || 1, f = (1 - d / mr) * (1 + 0.8 * gather); q.vx += (-dy / d * 0.9 + dx / d * 0.35) * f; q.vy += (dx / d * 0.9 + dy / d * 0.35) * f; }
+      }
+      if (gather > 0.3) { q.vx += gauss() * 0.018; q.vy += gauss() * 0.018; }
+      const damp = 0.94 - 0.11 * (q.role === 0 ? gather : Math.max(bloom, gather * 0.5));
+      q.vx *= damp; q.vy *= damp;
+      let ox = q.x, oy = q.y;
+      q.x += q.vx; q.y += q.vy;
+      if (gather < 0.05) {
+        let wrapped = false;
+        if (q.x < -10) { q.x += W + 20; wrapped = true; } else if (q.x > W + 10) { q.x -= W + 20; wrapped = true; }
+        if (q.y < -10) { q.y += H + 20; wrapped = true; } else if (q.y > H + 10) { q.y -= H + 20; wrapped = true; }
+        if (wrapped) { ox = q.x; oy = q.y; }
+      }
+      const sp = Math.hypot(q.vx, q.vy);
+      const settle = (q.role === 0 ? gather : bloom) * clamp(1 - sp / 3);
+      const roleC = q.role === 0 ? 0.25 + 0.25 * q.s : q.rc;
+      const roleA = q.role === 0 ? (0.14 + 0.22 * q.s) : q.ra;
+      const c = lerp(clamp(sp / 4.5), roleC, settle);
+      const al = lerp(0.32 + 0.3 * clamp(sp / 3), roleA, settle);
+      if (sp > 0.6) {
+        fx.strokeStyle = col(c, al); fx.lineWidth = q.w;
+        fx.beginPath(); fx.moveTo(ox, oy); fx.lineTo(q.x, q.y); fx.stroke();
+      } else {
+        fx.fillStyle = col(c, al); const z = q.role === 1 && q.edge ? 1.1 : 1.25;
+        fx.fillRect(q.x - z / 2, q.y - z / 2, z, z);
+      }
+    }
+
+    // ---------- ambient drifters: frost and dew on the lotus ----------
+    const magnet = bloom;
+    const anchors = [];
+    if (magnet > 0.05) {
+      for (let k = 0; k <= 26; k++) {
+        const t = k / 26, i2 = Math.min(KF.N - 1, Math.floor(t * (KF.N - 1)));
+        anchors.push([L.cx + KF.sm[i2] * L.sway * (1 - t * t) * (1 - 0.8 * bloom), lerp(bottom, L.top, t)]);
+      }
+      if (bloom > 0.3) for (const m of MAG) anchors.push([L.cx + m.ux * L.R * breath, L.fy - m.uy * L.R * breath]);
+    }
+    const reach = 46, sec = dt / 1000;
+    const bx0 = L.cx - L.R * 1.5 - reach, bx1 = L.cx + L.R * 1.5 + reach, by0 = L.fy - L.R * 1.1 - reach, by1 = Math.max(bottom, L.water) + reach;
+    for (let i = 0; i < A.length; i++) {
+      const q = A[i];
+      if (q.st === 1) {
+        // resting on the outline: follow the anchor, glow, then lift off
+        const an = anchors[q.k];
+        if (!an || magnet < 0.05) { q.st = 2; q.t = 0; if (an) TAKEN[q.k] = 0; }
+        else {
+          q.x = an[0]; q.y = an[1]; q.t += sec;
+          const life = q.t / q.life, b = Math.sin(Math.PI * clamp(life));
+          fx.globalAlpha = 0.06 + 0.2 * b; fx.drawImage(BEAD, q.x - 6, q.y - 6, 12, 12); fx.globalAlpha = 1;
+          if (life >= 1) { q.st = 2; q.t = 0; TAKEN[q.k] = 0; q.vx = (rand() - 0.5) * 0.4; q.vy = -0.7 - rand() * 0.6; }
+          continue;
+        }
+      }
+      const a = flow(q.x * 0.8 + 400, q.y * 0.8, time * 0.8);
+      q.vx += Math.cos(a) * 0.045 + 0.005; q.vy += Math.sin(a) * 0.045 - (q.st === 2 ? 0.02 : 0.002);
+      if (q.st === 2) { q.t += sec; if (q.t > 1.2) { q.st = 0; q.cool = 3 + rand() * 4; } }
+      if (q.cool > 0) q.cool -= sec;
+      if (anchors.length && q.st === 0 && q.cool <= 0 && q.x > bx0 && q.x < bx1 && q.y > by0 && q.y < by1) {
+        let bd = 1e9, bk = -1, ddx = 0, ddy = 0;
+        for (let k = 0; k < anchors.length; k++) { if (TAKEN[k]) continue; const dx = anchors[k][0] - q.x, dy = anchors[k][1] - q.y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; bk = k; ddx = dx; ddy = dy; } }
+        const d = Math.sqrt(bd);
+        if (d < 5 && bk >= 0) { TAKEN[bk] = 1; q.st = 1; q.k = bk; q.t = 0; q.life = 1.4 + rand() * 2.8; q.vx = q.vy = 0; continue; }
+        if (d < reach) { const f = Math.pow(1 - d / reach, 2) * 0.35 * magnet / (d || 1); q.vx += ddx * f; q.vy += ddy * f; }
+      }
+      if (mouse.on) {
+        const dx = q.x - mouse.x, dy = q.y - mouse.y, d2 = dx * dx + dy * dy;
+        if (d2 < mr * mr) { const d = Math.sqrt(d2) || 1, f = 1 - d / mr; q.vx += (-dy / d * 0.7 + dx / d * 0.3) * f; q.vy += (dx / d * 0.7 + dy / d * 0.3) * f; }
+      }
+      q.vx *= 0.96; q.vy *= 0.96;
+      let ox = q.x, oy = q.y;
+      q.x += q.vx; q.y += q.vy;
+      let wrapped = false;
+      if (q.x < -10) { q.x += W + 20; wrapped = true; } else if (q.x > W + 10) { q.x -= W + 20; wrapped = true; }
+      if (q.y < -10) { q.y += H + 20; wrapped = true; } else if (q.y > H + 10) { q.y -= H + 20; wrapped = true; }
+      if (wrapped) { ox = q.x; oy = q.y; }
+      const sp = Math.hypot(q.vx, q.vy), lift = q.st === 2 ? 1 - q.t / 1.2 : 0;
+      const al = (0.24 + 0.18 * clamp(sp / 2)) * (1 - 0.2 * gather) + 0.5 * lift;
+      const c = clamp(0.15 + sp / 5 + 0.7 * lift);
+      if (sp > 0.6) { fx.strokeStyle = col(c, al); fx.lineWidth = q.w; fx.beginPath(); fx.moveTo(ox, oy); fx.lineTo(q.x, q.y); fx.stroke(); }
+      else { fx.fillStyle = col(c, al); const z = q.w * 1.6; fx.fillRect(q.x - z / 2, q.y - z / 2, z, z); }
+    }
+    drawLines(p, gather, bloom, dt);
+  }
+
+  // ---------- overlay: water, reflection, light, one annotation, cursor, shocks ----------
+  const rc = document.createElement('canvas'), rx = rc.getContext('2d');
+  const pollen = Array.from({ length: 46 }, () => ({ t: rand(), x: gauss(), sp: 0.04 + rand() * 0.06 }));
+  function drawLines(p, gather, bloom, dt) {
+    lx.setTransform(dpr, 0, 0, dpr, 0, 0); lx.clearRect(0, 0, W, H);
+    const { cx, fy, R, water } = L;
+    if (bloom > 0.02) {
+      // reflection: the field above the waterline, mirrored, blurred, fading with depth
+      const hw = Math.round(W / 2), hh = Math.round(H / 2);
+      if (rc.width !== hw || rc.height !== hh) { rc.width = hw; rc.height = hh; }
+      rx.setTransform(1, 0, 0, 1, 0, 0); rx.globalCompositeOperation = 'source-over'; rx.clearRect(0, 0, hw, hh);
+      rx.filter = 'blur(1.5px)';
+      rx.save(); rx.translate(0, water); rx.scale(0.5, -0.5);
+      rx.drawImage(fc, 0, 0, fc.width, water * dpr, 0, 0, W, water); rx.restore(); rx.filter = 'none';
+      // the mirrored image now sits from water/2 downward in half-scale space
+      rx.globalCompositeOperation = 'destination-in';
+      const m = rx.createLinearGradient(0, water / 2, 0, water / 2 + R * 0.38);
+      m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+      rx.fillStyle = m; rx.fillRect(0, 0, hw, hh);
+      lx.globalAlpha = 0.24 * bloom; lx.drawImage(rc, 0, water / 2, hw, hh - water / 2, 0, water, W, H - water);
+      // waterline
+      [[1, 0], [0.6, 7], [0.3, 13]].forEach(([a, off]) => {
+        const span = R * (1.9 - off * 0.04);
+        const gr = lx.createLinearGradient(cx - span, 0, cx + span, 0);
+        gr.addColorStop(0, 'rgba(143,178,255,0)'); gr.addColorStop(0.5, `rgba(143,178,255,${0.45 * a})`); gr.addColorStop(1, 'rgba(143,178,255,0)');
+        lx.globalAlpha = bloom; lx.strokeStyle = gr; lx.lineWidth = 0.8;
+        lx.beginPath(); lx.moveTo(cx - span, water + off + Math.sin(time + off) * 0.6); lx.lineTo(cx + span, water + off + Math.sin(time + off) * 0.6); lx.stroke();
+      });
+      // light from the heart
+      lx.globalCompositeOperation = 'lighter';
+      const gl = lx.createRadialGradient(cx, fy, 0, cx, fy, R * 0.6);
+      gl.addColorStop(0, 'rgba(200,220,255,0.5)'); gl.addColorStop(0.3, 'rgba(143,178,255,0.16)'); gl.addColorStop(1, 'rgba(63,111,224,0)');
+      lx.globalAlpha = bloom * (0.9 + 0.1 * Math.sin(time * 1.3)); lx.fillStyle = gl; lx.beginPath(); lx.arc(cx, fy, R * 0.6, 0, Math.PI * 2); lx.fill();
+      // pollen drifting up from the heart
+      pollen.forEach((d) => {
+        d.t += d.sp * dt / 1000; if (d.t > 1) { d.t = 0; d.x = gauss(); }
+        lx.globalAlpha = bloom * 0.6 * (1 - d.t) * Math.min(1, d.t * 6);
+        lx.fillStyle = '#E6F0FF'; lx.fillRect(cx + d.x * R * 0.16 * (1 + d.t) - 0.8, fy - R * (0.12 + d.t * 0.95) - 0.8, 1.6, 1.6);
+      });
+      lx.globalCompositeOperation = 'source-over';
+      // one quiet annotation
+      const an = seg(p, 0.8, 0.88);
+      if (an > 0 && L.wide) {
+        const tx = cx - R * 0.6, ty = fy - R * 0.5, ex = cx - R * 1.5;
+        lx.globalAlpha = an * 0.7; lx.strokeStyle = 'rgba(238,241,247,0.4)'; lx.lineWidth = 0.6; lx.fillStyle = '#EEF1F7';
+        lx.beginPath(); lx.arc(tx, ty, 2.2, 0, Math.PI * 2); lx.fill();
+        lx.beginPath(); lx.moveTo(tx - 4, ty); lx.lineTo(ex, ty); lx.stroke();
+        lx.textAlign = 'right'; lx.font = 'italic 400 22px "Instrument Serif", Georgia, serif'; lx.fillText('r = |cos 4θ|', ex - 10, ty + 7);
+        lx.font = '300 10px "Geist Mono", monospace'; lx.fillStyle = 'rgba(140,147,166,0.8)'; lx.fillText(document.documentElement.dataset.lang === 'zh' ? '玫瑰线' : 'ROSE CURVE', ex - 10, ty + 26);
+        lx.textAlign = 'left';
+      }
+    }
+    // cursor ring
+    if (mouse.on) {
+      lx.globalAlpha = 0.35; lx.strokeStyle = '#EEF1F7'; lx.lineWidth = 0.6;
+      lx.beginPath(); lx.arc(mouse.x, mouse.y, 18, 0, Math.PI * 2); lx.stroke();
+    }
+    // shocks
+    for (let i = shocks.length - 1; i >= 0; i--) {
+      const s = shocks[i]; s.t += dt / 1000;
+      const a = 1 - s.t / 2.2; if (a <= 0) { shocks.splice(i, 1); continue; }
+      lx.globalAlpha = a * 0.8; lx.strokeStyle = '#E6F0FF'; lx.lineWidth = 0.8;
+      lx.beginPath(); lx.arc(s.x, s.y, s.R * (0.3 + s.t * 0.6), 0, Math.PI * 2); lx.stroke();
+      lx.globalAlpha = a; lx.fillStyle = '#E6F0FF'; lx.font = '400 12px "IBM Plex Mono", monospace';
+      lx.font = '300 11px "Geist Mono", monospace'; lx.fillText('+' + s.sigma.toFixed(1) + 'σ', s.x + 14, s.y - 14);
+    }
+    lx.globalAlpha = 1;
+  }
+
+  function texts(p) {
+    prog.style.width = (p * 100) + '%';
+    caps.forEach((c) => {
+      const a = +c.dataset.a, b = +c.dataset.b;
+      const o = Math.min(a < 0 ? 1 : soft(seg(p, a, a + 0.035)), 1 - soft(seg(p, b - 0.03, b)));
+      c.style.opacity = String(Math.min(1, o * 1.4));
+      const rising = a >= 0 ? soft(seg(p, a, a + 0.05)) : 1;
+      c.style.setProperty('--o', String(p < (a + b) / 2 ? rising : 1));
+      if (c.id === 'fin-big') c.style.transform = `translateY(${(1 - soft(seg(p, a, a + 0.1))) * 8}vw)`;
+      else if (c.classList.contains('note')) c.style.transform = L.wide ? 'translateY(-50%)' : 'none';
+    });
+  }
+
+  function loop(t) {
+    const dt = Math.min(50, t - (lastT || t)); lastT = t;
+    cur += (target_ - cur) * (1 - Math.exp(-dt / 160));
+    if (visible) { step(dt); texts(cur); }
+    requestAnimationFrame(loop);
+  }
+
+  function readTarget() { if (reduce) return 1; const r = intro.getBoundingClientRect(), span = Math.max(1, r.height - H); return clamp(-r.top / span); }
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = stage.clientWidth; H = stage.clientHeight;
+    [fc, lc].forEach((c) => { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); });
+    layout(); seed();
+    fx.setTransform(dpr, 0, 0, dpr, 0, 0); fx.fillStyle = '#040509'; fx.fillRect(0, 0, W, H);
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('scroll', () => { target_ = readTarget(); skip.hidden = target_ >= 0.995 || reduce; }, { passive: true });
+  skip.addEventListener('click', (e) => { e.stopPropagation(); $('#content').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); });
+  if ('IntersectionObserver' in window) new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { threshold: 0 }).observe(stage);
+
+  try {
+    const fav = document.createElement('link'); fav.rel = 'icon';
+    fav.href = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3F6FE0"/><stop offset=".55" stop-color="#8FB2FF"/><stop offset="1" stop-color="#E6F0FF"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="#040509"/><circle cx="16" cy="16" r="6.5" fill="url(#g)"/></svg>');
+    document.head.appendChild(fav);
+  } catch (e) {}
+
+  const root = document.documentElement;
+  try { const saved = localStorage.getItem('lotus-lang'); if (saved === 'zh') root.dataset.lang = 'zh'; } catch (e) {}
+  const syncLang = () => { root.lang = root.dataset.lang === 'zh' ? 'zh-CN' : 'en'; };
+  syncLang();
+  document.querySelectorAll('[data-lang-toggle]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    root.dataset.lang = root.dataset.lang === 'zh' ? 'en' : 'zh'; syncLang();
+    try { localStorage.setItem('lotus-lang', root.dataset.lang); } catch (err) {}
+  }));
+  resize();
+  target_ = cur = readTarget(); skip.hidden = target_ >= 0.995 || reduce;
+  if (reduce) {
+    // settle the particles into the bloom once, without animating
+    for (let k = 0; k < 260; k++) step(16);
+    texts(1);
+  } else requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
