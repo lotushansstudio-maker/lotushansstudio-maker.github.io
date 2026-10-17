@@ -9,181 +9,133 @@
 <meta property="og:description" content="Out of the mud, unstained. Out of the noise, a signal.">
 <meta property="og:image" content="preview.jpg">
 <meta name="theme-color" content="#040509">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap">
 <style>
-/* Layout: black ground, one full-screen hero. Particles gather from noise into a Kalman-filter stem and a 3-D rose-curve lotus on load; drifters rest on it like dew. Then an about block and a list of works. One language on screen at a time (EN default, 中 toggle). Single deliberate dark look. */
+/* One typeface (Inter, Noto Sans SC for Chinese), two weights, neutral greys. A full-screen hero where particles gather from noise into a Kalman-filter stem and a 3-D rose-curve lotus, then a plain list of work. EN default, 中 toggle. */
 :root{
-  --bg:#040509; --fg:#EEF1F7; --text:rgba(238,241,247,.86); --muted:rgba(176,183,200,.9); --faint:#232838; --rule:#1A1F2C;
-  --c1:#3F6FE0; --c2:#8FB2FF; --c3:#E6F0FF;
-  --serif-d:'Instrument Serif',Georgia,serif;
+  --bg:#050608; --fg:#F2F3F5; --text:rgba(242,243,245,.66); --muted:rgba(242,243,245,.42); --rule:rgba(255,255,255,.08);
+  --accent:#9DB8FF;
   --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  --cjk:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
-  --mono:var(--sans);
+  --cjk:'Inter','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
   --m:clamp(20px,4.5vw,64px);
   color-scheme:dark;
 }
-body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--serif-d)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 15px/1.6 var(--sans);-webkit-font-smoothing:antialiased;font-feature-settings:"ss01","cv11"}
 :root[data-lang="zh"] body{font-family:var(--cjk)}
 :root:not([data-lang="zh"]) .l-zh{display:none!important}
 :root[data-lang="zh"] .l-en{display:none!important}
-a{color:inherit}
-a:focus-visible,button:focus-visible{outline:1px solid var(--c2);outline-offset:4px}
-sub{font-size:.66em}
+a{color:inherit;text-decoration:none}
+a:focus-visible,button:focus-visible{outline:1px solid var(--accent);outline-offset:4px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 
-/* ---------- stage ---------- */
+/* ---------- hero ---------- */
 #intro{position:relative;height:100vh;height:100dvh}
-#stage{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;background:var(--bg);cursor:crosshair}
+#stage{position:sticky;top:0;height:100%;overflow:hidden;background:var(--bg);cursor:crosshair}
 #field,#lines{position:absolute;inset:0;width:100%;height:100%;display:block}
-#vignette{position:absolute;inset:0;z-index:4;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
-.chrome{position:absolute;right:var(--m);top:calc(var(--m) - 10px + env(safe-area-inset-top,0px));z-index:6;display:flex;gap:18px;align-items:center}
-.chrome button{font:300 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;background:none;border:0;color:var(--muted);padding:10px 0;cursor:pointer}
-.chrome button:hover{color:var(--fg)}
-.lang b{font-weight:300;color:var(--fg)}
+#vignette{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,0) 55%,rgba(0,0,0,.6) 100%)}
 
-.label{position:absolute;left:var(--m);top:calc(var(--m) + env(safe-area-inset-top,0px));z-index:3;pointer-events:none;max-width:min(440px,calc(100% - 2 * var(--m)))}
-.label .kicker{font:300 11px/1.4 var(--mono);letter-spacing:.26em;text-transform:uppercase;color:var(--muted)}
-.label h1{margin:10px 0 0;font:italic 400 clamp(64px,8vw,112px)/.9 var(--serif-d);letter-spacing:-.025em;color:var(--fg)}
-.label .sub{display:block;margin-top:18px;font:italic 400 clamp(18px,1.6vw,22px)/1.45 var(--serif-d);color:var(--text)}
-.label .sub.l-zh{font:300 15px/1.9 var(--cjk);letter-spacing:.06em}
-.label .cta{display:inline-block;margin-top:26px;pointer-events:auto;font:300 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--fg);text-decoration:none;padding:13px 18px;border:1px solid var(--rule);border-radius:999px;background:rgba(4,5,9,.5)}
-.label .cta:hover{border-color:var(--c2);color:var(--c2)}
-.label{opacity:0;transition:opacity 1.2s ease .3s}
+.top{position:absolute;left:var(--m);right:var(--m);top:calc(var(--m) * .6 + env(safe-area-inset-top,0px));z-index:5;display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:14px;color:var(--text)}
+.top .mark{color:var(--fg);font-weight:500}
+.top nav{display:flex;gap:clamp(16px,2.4vw,32px);align-items:center}
+.top nav a:hover,.top nav button:hover{color:var(--fg)}
+
+.label{position:absolute;left:var(--m);bottom:calc(var(--m) + env(safe-area-inset-bottom,0px));z-index:4;max-width:min(520px,calc(100% - 2 * var(--m)));pointer-events:none;opacity:0;transition:opacity 1.2s ease .3s}
 .label.on{opacity:1}
-@media (max-width:820px){ .label{top:auto;bottom:calc(var(--m) + 24px + env(safe-area-inset-bottom,0px))} .label h1{font-size:clamp(56px,16vw,84px)} }
+.label h1{margin:0;font-weight:500;font-size:clamp(34px,4.2vw,56px);line-height:1.08;letter-spacing:-.025em}
+.label .role{margin:14px 0 0;font-size:clamp(15px,1.2vw,17px);color:var(--text)}
+.label .cta{display:inline-flex;gap:8px;margin-top:28px;pointer-events:auto;font-size:14px;color:var(--fg);border-bottom:1px solid var(--muted);padding-bottom:3px}
+.label .cta:hover{border-color:var(--fg)}
 
-/* ---------- content ---------- */
-#content{padding-inline:var(--m);padding-block:0 56px;border-top:1px solid var(--rule);background:var(--bg)}
-.mast{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 24px;padding-block:22px;border-bottom:1px solid var(--rule)}
-.brand{font:italic 400 28px/1 var(--serif-d);text-decoration:none;display:flex;align-items:center;gap:10px}
-.brand .dot{width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--c3),var(--c2) 60%,var(--c1));box-shadow:0 0 12px rgba(143,178,255,.5)}
-nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 28px;font:300 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
-nav a,nav button{text-decoration:none;padding-block:14px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;background:none;border:0;cursor:pointer}
-nav a:hover,nav button:hover{color:var(--fg)}
-.about{max-width:1180px;margin:0 auto;padding-block:clamp(56px,8vw,96px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:20px clamp(24px,5vw,72px);align-items:start}
-.about .name{margin:0;font:italic 400 clamp(40px,5vw,64px)/1 var(--serif-d);letter-spacing:-.02em;color:var(--fg)}
-.about .role{margin-top:12px;font:300 11px/1.6 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-.about .bio{margin:0;font:italic 400 clamp(19px,1.7vw,23px)/1.55 var(--serif-d);color:var(--text)}
-.about .bio.l-zh{font:300 16px/2 var(--cjk);font-style:normal;letter-spacing:.04em}
-@media (max-width:820px){ .about{grid-template-columns:minmax(0,1fr)} }
-.series{max-width:1180px;margin:0 auto}
-.series-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 24px;padding-block:0 18px;border-bottom:1px solid var(--rule)}
-.series-head h3{margin:0;font:italic 400 clamp(28px,3vw,40px)/1.1 var(--serif-d)}
-.series-head h3 .l-zh{font:300 .8em/1.1 var(--cjk);letter-spacing:.24em;font-style:normal}
-.series-head p{margin:0;font:300 11px/1.5 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
-.view{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:6px clamp(16px,3vw,40px);align-items:baseline;padding-block:clamp(22px,2.4vw,30px);border-bottom:1px solid var(--rule);text-decoration:none}
-.view .no{font:300 12px/1 var(--mono);letter-spacing:.18em;color:var(--c2)}
-.view .t{min-width:0}
-.view .t b{display:block;font:italic 400 clamp(24px,2.6vw,32px)/1.2 var(--serif-d);font-weight:400}
-.view .t b .l-zh{font:300 .86em/1.3 var(--cjk);letter-spacing:.08em;font-style:normal}
-.view .d{display:block;margin-top:8px;max-width:62ch;font:italic 400 17px/1.5 var(--serif-d);color:var(--text)}
-.view .d.l-zh{font:300 14px/1.9 var(--cjk);font-style:normal}
-.view .tags{display:block;margin-top:10px;font:300 10px/1.6 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-.view .tags span:not(:last-child)::after{content:" · "}
-.view .go{font:300 11px/1.6 var(--mono);letter-spacing:.22em;text-transform:uppercase;white-space:nowrap;color:var(--muted);text-align:right}
-a.view:hover .t b,a.view:hover .go{color:var(--c2)}
-footer{max-width:1180px;margin:72px auto 0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 32px;font:300 11px/1.6 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-footer a{color:var(--muted);text-decoration:none}
+/* ---------- work ---------- */
+main{padding:clamp(72px,10vw,128px) var(--m) 48px}
+.wrap{max-width:960px;margin:0 auto}
+.about{margin:0 0 clamp(64px,8vw,96px);font-size:clamp(20px,2vw,26px);line-height:1.45;letter-spacing:-.012em;color:var(--fg);max-width:30em}
+.about .dim{color:var(--muted)}
+h2{margin:0 0 8px;font-size:13px;font-weight:500;color:var(--muted)}
+.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.list a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 32px;padding:26px 0;border-bottom:1px solid var(--rule)}
+.list .t{font-size:18px;font-weight:500;letter-spacing:-.01em}
+.list .d{grid-column:1;font-size:15px;color:var(--text);max-width:58ch}
+.list .k{grid-row:1;grid-column:2;font-size:13px;color:var(--muted);white-space:nowrap;transition:color .2s}
+.list a:hover .t,.list a:hover .k{color:var(--accent)}
+
+footer{max-width:960px;margin:clamp(72px,9vw,112px) auto 0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 24px;font-size:13px;color:var(--muted)}
+footer nav{display:flex;gap:24px}
 footer a:hover{color:var(--fg)}
-@media (max-width:640px){ .view{grid-template-columns:minmax(0,1fr)} .view .go{text-align:left} }
-@media (prefers-reduced-motion: reduce){ .label{transition:none} }
 
-/* readability: display serif only for the big names; everything else in a plain sans, larger and less tracked */
-body{font-family:var(--sans)}
-.chrome button,nav,nav a,nav button,.label .kicker,.label .cta,.about .role,.series-head p,.view .no,.view .tags,.view .go,footer{font-family:var(--sans);font-weight:500;font-size:13px;letter-spacing:.06em}
-.label .kicker,.about .role,.view .tags{font-weight:400}
-.label .sub,.about .bio,.view .d{font-family:var(--sans);font-style:normal;font-weight:400}
-.label .sub{font-size:clamp(17px,1.4vw,19px);line-height:1.5}
-.about .bio{font-size:clamp(17px,1.4vw,19px);line-height:1.7}
-.view .d{font-size:16px;line-height:1.6}
-.view .t b{font:600 clamp(20px,2vw,24px)/1.3 var(--sans);letter-spacing:-.01em}
-.label .sub.l-zh,.about .bio.l-zh,.view .d.l-zh{font-family:var(--cjk);letter-spacing:.02em}
-.view .t b .l-zh,.series-head h3 .l-zh{font-family:var(--cjk);font-weight:500;letter-spacing:.02em}
-.about .name,.series-head h3{font-style:normal}
+@media (max-width:640px){
+  .top nav .hide-s{display:none}
+  .list a{grid-template-columns:minmax(0,1fr)}
+  .list .k{grid-row:auto;grid-column:1;order:3;margin-top:4px}
+}
+@media (prefers-reduced-motion: reduce){ .label{transition:none} html{scroll-behavior:auto} }
 </style>
 </head>
 <body>
 
-
-<section id="intro" aria-label="Lotus — Out of the Noise">
+<section id="intro" aria-label="Hanyu (Lotus) Ke">
   <div id="stage">
     <canvas id="field" aria-hidden="true"></canvas>
     <canvas id="lines" role="img" aria-label="Particles gather from noise into a glowing lotus. Move to stir them, click to send a shock."></canvas>
     <div id="vignette" aria-hidden="true"></div>
-    <div class="chrome">
-      <button class="lang" type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en"><b>EN</b> / 中</span><span class="l-zh">EN / <b>中</b></span></button>
-    </div>
+
+    <header class="top">
+      <a class="mark" href="#intro">Lotus</a>
+      <nav aria-label="Main">
+        <a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a>
+        <a class="hide-s" href="https://github.com/lotushansstudio-maker">GitHub</a>
+        <a class="hide-s" href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a>
+        <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">中文</span><span class="l-zh">EN</span></button>
+      </nav>
+    </header>
 
     <div class="label">
-      <span class="kicker"><span class="l-en">Quantitative Finance · Portfolio</span><span class="l-zh">量化金融作品集</span></span>
-      <h1>Lotus</h1>
-      <span class="sub l-en">Out of the noise, a signal.</span>
-      <span class="sub l-zh">出淤泥而不染，从噪声里提取信号。</span>
-      <a class="cta" href="#works"><span class="l-en">View works ↓</span><span class="l-zh">查看作品 ↓</span></a>
+      <h1>Hanyu (Lotus) Ke</h1>
+      <p class="role"><span class="l-en">Quantitative finance · MSc, Singapore Management University</span><span class="l-zh">量化金融 · 新加坡管理大学硕士</span></p>
+      <a class="cta" href="#works"><span class="l-en">Selected work</span><span class="l-zh">精选作品</span><span aria-hidden="true">↓</span></a>
     </div>
   </div>
 </section>
 
 <main id="content">
-  <header class="mast">
-    <a class="brand" href="#intro"><span class="dot" aria-hidden="true"></span>Lotus</a>
-    <nav aria-label="Main">
-      <a href="#works"><span class="l-en">Works</span><span class="l-zh">作品</span></a>
-      <a href="#about"><span class="l-en">About</span><span class="l-zh">关于</span></a>
-      <a href="https://github.com/lotushansstudio-maker">GitHub ↗</a>
-      <a href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn ↗</a>
-      <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">EN / 中</span><span class="l-zh">EN / 中</span></button>
-    </nav>
-  </header>
+  <div class="wrap">
+    <p class="about"><span class="l-en">I build small, honest quantitative studies. <span class="dim">Factor screens, rule-based backtests and portfolio tools, each with its method, data and limits in the open.</span></span><span class="l-zh">我做小而诚实的量化研究。<span class="dim">因子筛选、规则回测和组合工具，每个项目都公开写明方法、数据和局限。</span></span></p>
 
-  <section class="about" id="about">
-    <div>
-      <h2 class="name">Hanyu (Lotus) Ke</h2>
-      <div class="role"><span class="l-en">MSc Quantitative Finance · Singapore Management University</span><span class="l-zh">新加坡管理大学 · 量化金融硕士</span></div>
-    </div>
-    <p class="bio l-en">I build small, honest quantitative studies: factor screens, rule-based backtests and portfolio tools, each with its method, data and limits laid out in the open.</p>
-    <p class="bio l-zh">我做小而诚实的量化研究：因子筛选、规则回测和组合工具，每个项目都公开写明方法、数据和局限。</p>
-  </section>
-
-  <section class="series" id="works">
-    <div class="series-head">
-      <h3><span class="l-en">Works</span><span class="l-zh">作品</span></h3>
-      <p><span class="l-en">Selected · 2026</span><span class="l-zh">精选 · 2026</span></p>
-    </div>
-    <div class="views">
-      <a class="view" href="https://lotushansstudio-maker.github.io/AssetPricing-Dashboard/">
-        <span class="no">01</span>
-        <span class="t"><b><span class="l-en">Crypto Portfolio Lab</span><span class="l-zh">加密资产组合实验室</span></b>
-          <span class="d l-en">Interactive dashboard: does stabilising a noisy mean-variance optimiser beat simple equal weight?</span><span class="d l-zh">交互式仪表盘：稳定化的均值方差优化，能否跑赢简单的等权组合？</span>
-          <span class="tags"><span>Mean-variance</span><span>Crypto</span><span>Backtest</span></span></span>
-        <span class="go"><span class="l-en">Live ↗</span><span class="l-zh">在线查看 ↗</span></span>
-      </a>
-      <a class="view" href="https://github.com/lotushansstudio-maker/sgx-value-screen-backtest">
-        <span class="no">02</span>
-        <span class="t"><b><span class="l-en">SGX Value Screen</span><span class="l-zh">新加坡股市价值筛选</span></b>
-          <span class="d l-en">Which Singapore stocks look cheap today, and has buying the highest yielders paid off since 2010?</span><span class="d l-zh">哪些新加坡股票现在便宜？2010 年以来买高股息股票是否真的有效？</span>
-          <span class="tags"><span>Value factors</span><span>Dividend yield</span><span>Python</span></span></span>
-        <span class="go">GitHub ↗</span>
-      </a>
-      <a class="view" href="https://github.com/lotushansstudio-maker/sp500-trend-filter-backtest">
-        <span class="no">03</span>
-        <span class="t"><b><span class="l-en">S&amp;P 500 Trend Filter</span><span class="l-zh">标普 500 趋势过滤</span></b>
-          <span class="d l-en">A 10-month moving-average rule over 76 years: similar return, max drawdown cut from −51% to −19%.</span><span class="d l-zh">76 年的 10 个月均线规则：收益相近，最大回撤从 −51% 降到 −19%。</span>
-          <span class="tags"><span>Moving average</span><span>1950–2026</span><span>Python</span></span></span>
-        <span class="go">GitHub ↗</span>
-      </a>
-      <a class="view" href="https://github.com/lotushansstudio-maker/quant-job-search-workspace">
-        <span class="no">04</span>
-        <span class="t"><b><span class="l-en">Quant Job Search Workspace</span><span class="l-zh">Quant 求职工作台</span></b>
-          <span class="d l-en">A bilingual web app that maps 460+ Singapore firms to the roles quant students actually fit.</span><span class="d l-zh">中英双语网页应用，把新加坡 460 多家机构与量化学生真正适合的岗位对应起来。</span>
-          <span class="tags"><span>Web app</span><span>Bilingual</span><span>Singapore</span></span></span>
-        <span class="go">GitHub ↗</span>
-      </a>
-    </div>
-  </section>
+    <section id="works">
+      <h2><span class="l-en">Selected work</span><span class="l-zh">精选作品</span></h2>
+      <ol class="list">
+        <li><a href="https://lotushansstudio-maker.github.io/AssetPricing-Dashboard/">
+          <span class="t"><span class="l-en">Crypto Portfolio Lab</span><span class="l-zh">加密资产组合实验室</span></span>
+          <span class="k"><span class="l-en">Dashboard ↗</span><span class="l-zh">仪表盘 ↗</span></span>
+          <span class="d"><span class="l-en">Does stabilising a noisy mean-variance optimiser beat simple equal weight? An interactive dashboard.</span><span class="l-zh">稳定化的均值方差优化，能否跑赢简单的等权组合？一个交互式仪表盘。</span></span>
+        </a></li>
+        <li><a href="https://github.com/lotushansstudio-maker/sgx-value-screen-backtest">
+          <span class="t"><span class="l-en">SGX Value Screen</span><span class="l-zh">新加坡股市价值筛选</span></span>
+          <span class="k"><span class="l-en">Python ↗</span><span class="l-zh">Python ↗</span></span>
+          <span class="d"><span class="l-en">Which Singapore stocks look cheap today, and has buying the highest yielders paid off since 2010?</span><span class="l-zh">哪些新加坡股票现在便宜？2010 年以来买高股息股票是否真的有效？</span></span>
+        </a></li>
+        <li><a href="https://github.com/lotushansstudio-maker/sp500-trend-filter-backtest">
+          <span class="t"><span class="l-en">S&amp;P 500 Trend Filter</span><span class="l-zh">标普 500 趋势过滤</span></span>
+          <span class="k"><span class="l-en">Python ↗</span><span class="l-zh">Python ↗</span></span>
+          <span class="d"><span class="l-en">A 10-month moving-average rule over 76 years: similar return, max drawdown cut from −51% to −19%.</span><span class="l-zh">76 年的 10 个月均线规则：收益相近，最大回撤从 −51% 降到 −19%。</span></span>
+        </a></li>
+        <li><a href="https://github.com/lotushansstudio-maker/quant-job-search-workspace">
+          <span class="t"><span class="l-en">Quant Job Search Workspace</span><span class="l-zh">Quant 求职工作台</span></span>
+          <span class="k"><span class="l-en">Web app ↗</span><span class="l-zh">网页应用 ↗</span></span>
+          <span class="d"><span class="l-en">A bilingual web app that maps 460+ Singapore firms to the roles quant students actually fit.</span><span class="l-zh">中英双语网页应用，把新加坡 460 多家机构与量化学生真正适合的岗位对应起来。</span></span>
+        </a></li>
+      </ol>
+    </section>
+  </div>
 
   <footer>
     <span>© 2026 Hanyu (Lotus) Ke</span>
-    <span><a href="https://github.com/lotushansstudio-maker">GitHub ↗</a> &nbsp;·&nbsp; <a href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn ↗</a></span>
+    <nav aria-label="Elsewhere">
+      <a href="https://github.com/lotushansstudio-maker">GitHub</a>
+      <a href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a>
+    </nav>
   </footer>
 </main>
 
@@ -483,8 +435,7 @@ body{font-family:var(--sans)}
       const a = 1 - s.t / 2.2; if (a <= 0) { shocks.splice(i, 1); continue; }
       lx.globalAlpha = a * 0.8; lx.strokeStyle = '#E6F0FF'; lx.lineWidth = 0.8;
       lx.beginPath(); lx.arc(s.x, s.y, s.R * (0.3 + s.t * 0.6), 0, Math.PI * 2); lx.stroke();
-      lx.globalAlpha = a; lx.fillStyle = '#E6F0FF'; lx.font = '400 12px "IBM Plex Mono", monospace';
-      lx.font = '300 11px "Geist Mono", monospace'; lx.fillText('+' + s.sigma.toFixed(1) + 'σ', s.x + 14, s.y - 14);
+      lx.globalAlpha = a; lx.fillStyle = '#E6F0FF'; lx.font = '400 11px Inter, sans-serif'; lx.fillText('+' + s.sigma.toFixed(1) + 'σ', s.x + 14, s.y - 14);
     }
     lx.globalAlpha = 1;
   }
