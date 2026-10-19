@@ -191,6 +191,9 @@ textarea:focus{outline:none;border-color:var(--gold)}
 #intro .cn small{display:block;font-size:21px;margin-top:2px}
 #intro .tl{top:22px;left:22px}#intro .br{bottom:22px;right:22px;transform:rotate(180deg)}
 #intro .emb{position:absolute;left:50%;top:50%;width:48%;transform:translate(-50%,-52%)}
+#intro .emb.named{top:40%;width:40%;transform:translate(-50%,-50%)}
+#intro .fname{position:absolute;left:0;right:0;top:64%;text-align:center;font-family:var(--caps);font-size:19px;letter-spacing:.3em;padding-left:.3em;color:var(--emerald)}
+#intro .fsub{position:absolute;left:0;right:0;top:calc(64% + 30px);text-align:center;font-family:var(--caps);font-size:9px;letter-spacing:.42em;padding-left:.42em;color:var(--gold-dim)}
 #intro .skip{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);left:0;right:0;text-align:center;font-size:11px;letter-spacing:.3em;color:var(--text-3)}
 @keyframes deal{from{transform:translateY(45vh) rotate(-10deg) scale(.8);opacity:0}to{transform:none;opacity:1}}
 @keyframes turn{from{transform:rotateY(0)}to{transform:rotateY(180deg)}}
@@ -685,7 +688,9 @@ $('#j-save').onclick=()=>{const h=jHero.filter(c=>c!=null),bd=jBoard.filter(c=>c
 
 /* ---------- 开场动画 + 四张 A ---------- */
 // 卡里写的网址末尾加 #spade / #heart / #diamond / #club，碰哪张 A 就打开哪一页
-const CARDS={spade:['eq',0],heart:['range',1],diamond:['odds',2],club:['love',3]};
+// [打开哪页, 花色(0黑桃 1红心 2方块 3梅花), 点数, 牌面名字, 牌背文字, 牌面小字]
+const CARDS={spade:['eq',0,'A'],heart:['range',1,'A'],diamond:['odds',2,'A'],club:['love',3,'A'],
+  silas:['eq',1,'J','SILAS','S&L','11 · 10'],lotus:['love',1,'10','LOTUS','S&L','11 · 10']};
 const SUIT_SHAPES=[
   '<path d="M50 4C50 4 8 38 8 62C8 79 23 88 36 83C42 81 46 77 48 72C47 85 42 95 33 103H67C58 95 53 85 52 72C54 77 58 81 64 83C77 88 92 79 92 62C92 38 50 4 50 4Z"/>',
   '<path d="M50 104C50 104 6 74 6 42C6 22 20 10 35 10C43 10 48 15 50 21C52 15 57 10 65 10C80 10 94 22 94 42C94 74 50 104 50 104Z"/>',
@@ -696,10 +701,11 @@ function guilloche(c){const W=c.offsetWidth,H=c.offsetHeight,d=window.devicePixe
   const rose=(cx,cy,R,amp,k,n,col)=>{for(let j=0;j<n;j++){x.beginPath();x.strokeStyle=col;for(let t=0;t<=Math.PI*2+.01;t+=.01){const rr=R+amp*Math.sin(k*t+j*Math.PI*2/n/k*3);const px=cx+rr*Math.cos(t),py=cy+rr*Math.sin(t)*1.18;t?x.lineTo(px,py):x.moveTo(px,py)}x.stroke()}};
   rose(W/2,H/2,W*.41,W*.035,26,14,'rgba(196,164,104,.28)');rose(W/2,H/2,W*.31,W*.025,18,10,'rgba(196,164,104,.22)');
   [[.16,.12],[.84,.12],[.16,.88],[.84,.88]].forEach(([a,b])=>rose(W*a,H*b,W*.06,W*.012,10,6,'rgba(196,164,104,.32)'))}
-function playIntro(s){const el=$('#intro');const red=s===1||s===2;const col=red?'var(--rouge)':'var(--emerald)';
-  $('#intro-nm').textContent=CONFIG.signature;
-  $('#intro-front').innerHTML=`<div class="cn tl" style="color:${col}">A<small>${SUITS[s]}</small></div><div class="cn br" style="color:${col}">A<small>${SUITS[s]}</small></div>
-    <svg class="emb" viewBox="0 0 100 110" aria-hidden="true"><g fill="${red?'#a83a33':'#0f3326'}">${SUIT_SHAPES[s]}</g>${LOTUS_LINES}</svg>`;
+function playIntro(card){const [,s,rank,name,backText,sub]=card;const el=$('#intro');const red=s===1||s===2;const col=red?'var(--rouge)':'var(--emerald)';
+  $('#intro-nm').textContent=backText||CONFIG.signature;
+  $('#intro-front').innerHTML=`<div class="cn tl" style="color:${col}">${rank}<small>${SUITS[s]}</small></div><div class="cn br" style="color:${col}">${rank}<small>${SUITS[s]}</small></div>
+    <svg class="emb${name?' named':''}" viewBox="0 0 100 110" aria-hidden="true"><g fill="${red?'#a83a33':'#0f3326'}">${SUIT_SHAPES[s]}</g>${LOTUS_LINES}</svg>`+
+    (name?`<div class="fname">${name}</div><div class="fsub">${sub||''}</div>`:'');
   el.hidden=false;guilloche($('#intro-cv'));
   let gone=false;const done=()=>{if(gone)return;gone=true;el.classList.add('out');setTimeout(()=>el.hidden=true,650);store.set('seen',true)};
   const t=setTimeout(done,2900);el.onclick=()=>{clearTimeout(t);done()}}
@@ -738,7 +744,7 @@ renderSlots();renderOpps();renderOR();runEq();drawRange();drawVs();calcOdds();re
 subTabs('range-mode',{open:'rm-open',vs:'rm-vs'},'rmode');subTabs('log-mode',{pl:'lm-pl',j:'lm-j'},'lmode');
 const route=routeFromHash();
 show(route?route[0]:store.get('tab','eq'));
-if((route||!store.get('seen',false))&&!matchMedia('(prefers-reduced-motion: reduce)').matches)playIntro(route?route[1]:0);
+if((route||!store.get('seen',false))&&!matchMedia('(prefers-reduced-motion: reduce)').matches)playIntro(route||CARDS.spade);
 if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude/.test(location.hostname)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
 </body>
