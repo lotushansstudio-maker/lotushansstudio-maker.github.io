@@ -194,6 +194,28 @@ textarea:focus{outline:none;border-color:var(--gold)}
 #intro .skip{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);left:0;right:0;text-align:center;font-size:11px;letter-spacing:.3em;color:var(--text-3)}
 @keyframes deal{from{transform:translateY(45vh) rotate(-10deg) scale(.8);opacity:0}to{transform:none;opacity:1}}
 @keyframes turn{from{transform:rotateY(0)}to{transform:rotateY(180deg)}}
+/* 彩蛋 */
+#egg{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:rgba(4,14,10,.78);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);cursor:pointer;opacity:0;transition:opacity .35s;padding:24px}
+#egg.on{opacity:1}
+#egg .box{width:min(300px,84vw);display:grid;justify-items:center;gap:16px;text-align:center}
+#egg .pair{display:flex;gap:10px}
+#egg .pair span{width:62px;height:86px;border-radius:7px;background:var(--ivory);color:var(--emerald);display:grid;place-items:center;align-content:center;font-family:var(--display);font-weight:600;font-size:30px;line-height:.85;animation:glow 2.4s ease-in-out infinite}
+#egg .pair span i{font-style:normal;font-size:24px}
+#egg .pair span.red{color:var(--rouge)}
+#egg .note{background:var(--ivory);color:var(--emerald);border-radius:12px;padding:20px 18px 16px;position:relative;width:100%;box-shadow:0 22px 40px -14px rgba(0,0,0,.7);transform:translateY(18px);opacity:0;transition:transform .6s .25s cubic-bezier(.2,.8,.2,1),opacity .6s .25s}
+#egg.on .note{transform:none;opacity:1}
+#egg .note::before{content:"";position:absolute;inset:6px;border:.5px solid var(--gold-dim);border-radius:8px;opacity:.6;pointer-events:none}
+#egg .tag{font-family:var(--caps);font-size:9px;letter-spacing:.32em;color:var(--gold-dim)}
+#egg .note p{font-family:var(--cn-serif);font-size:17px;line-height:1.9;margin:10px 0 8px;font-weight:600;text-wrap:balance}
+#egg .esig{font-family:var(--caps);font-size:9px;letter-spacing:.36em;color:var(--gold-dim)}
+#egg .eclose{font-size:11px;color:var(--text-3);letter-spacing:.2em}
+@keyframes glow{0%,100%{box-shadow:0 0 0 1px rgba(226,203,147,.5),0 0 16px rgba(226,203,147,.25)}50%{box-shadow:0 0 0 1px rgba(226,203,147,.9),0 0 34px rgba(226,203,147,.6)}}
+.album{width:100%;max-width:300px;border-top:.5px solid rgba(196,164,104,.3);padding-top:16px;display:grid;gap:10px;margin-top:6px}
+.album .kicker{margin:0}
+.eslots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.eslots button{aspect-ratio:5/7;border-radius:5px;border:.75px dashed rgba(196,164,104,.5);background:transparent;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:rgba(196,164,104,.55);padding:0;cursor:default}
+.eslots button.got{border:0;background:var(--ivory);color:var(--emerald);font-size:15px;line-height:1.15;font-weight:600;cursor:pointer;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px}
+.eslots button.got .red{color:var(--rouge)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -327,6 +349,7 @@ textarea:focus{outline:none;border-color:var(--gold)}
       <div class="sig" id="sig"></div>
       <div class="days" id="days" hidden></div>
       <button class="again" type="button" id="again">再翻一张</button>
+      <div class="album" id="album"></div>
     </section>
   </main>
 
@@ -345,6 +368,12 @@ textarea:focus{outline:none;border-color:var(--gold)}
   <div class="deck" id="deck"></div>
 </div>
 
+<div id="egg" hidden role="dialog" aria-label="彩蛋"><div class="box">
+  <div class="pair" id="egg-pair"></div>
+  <div class="note"><div class="tag" id="egg-tag"></div><p id="egg-text"></p><div class="esig" id="egg-sig"></div></div>
+  <div class="eclose">轻点任意处关闭</div>
+</div></div>
+
 <div id="intro" hidden>
   <div class="deal"><div class="flip">
     <div class="face fb"><canvas id="intro-cv"></canvas><div class="frame"></div><div class="cart"><svg viewBox="22 30 56 50" aria-hidden="true"><g fill="none" stroke="#d1b47a" stroke-width="1.6" stroke-linejoin="round"><path d="M50 34C57 45 57 58 50 67C43 58 43 45 50 34Z"/><path d="M50 67C39 63 32 54 31 44C40 47 47 56 50 67Z"/><path d="M50 67C61 63 68 54 69 44C60 47 53 56 50 67Z"/><path d="M36 72Q50 77 64 72"/></g></svg><div class="nm" id="intro-nm">LOTUS</div></div></div>
@@ -362,7 +391,15 @@ const CONFIG = {
     "世界上有 1326 种起手牌，<br>我只想做你手里的那一副。"
   ],
   // 在一起的日期，格式 "2023-05-20"；不想显示就留空 ""
-  together: ""
+  together: "",
+  // 藏在牌里的彩蛋：在胜率页选到这两张手牌就会弹出。
+  // 写两个字母 = 只看点数、不管花色（T 代表 10）；写四个字符 = 指定花色（s 黑桃 h 红心 d 方块 c 梅花）
+  eggs: [
+    { cards: "AA",   text: "我们就是一对 AA，<br>怎么打都不会输。" },
+    { cards: "AhKh", text: "同一个花色的我们，<br>天生一对同花。" },
+    { cards: "JT",   text: "J 和 10，就是 11 月 10 日。<br>这一天，世界多了一个最好的你。" },
+    { cards: "K4",   text: "4 和 K，是 4 月 13 日，我的生日。<br>拿到这手牌的时候，想我一下。" }
+  ]
 };
 /* ================================================================ */
 
@@ -455,6 +492,7 @@ function runEq(){
   $('#orange-hint').textContent=oppRange==='RND'?'假设对手拿任意两张牌':`假设每个对手都拿着 ${oppRange} 位置开池范围里的牌，更接近实战`;
   $('#eq-empty').hidden=h.length>=2;$('#eq-out').hidden=h.length<2;
   if(h.length<2){lbl.textContent='胜率';$('#made').textContent='';return}
+  checkEgg();
   const partial=bd.length===1||bd.length===2;
   if(partial)lbl.textContent='公共牌请选满 3 张翻牌';
   const known=bd.length>=3?bd:[];
@@ -668,6 +706,27 @@ function playIntro(s){const el=$('#intro');const red=s===1||s===2;const col=red?
 function routeFromHash(){return CARDS[location.hash.slice(1)]}
 window.addEventListener('hashchange',()=>{const r=routeFromHash();if(r)show(r[0])});
 
+/* ---------- 彩蛋 ---------- */
+let eggsFound=store.get('eggs',[]);
+function eggMatch(e,a,b){const k=e.cards;
+  if(k.length===2){const ra=RANKS[rankOf(a)],rb=RANKS[rankOf(b)];return (ra===k[0]&&rb===k[1])||(ra===k[1]&&rb===k[0])}
+  const want=[k.slice(0,2),k.slice(2,4)].map(x=>RANKS.indexOf(x[0])*4+'shdc'.indexOf(x[1]));return (a===want[0]&&b===want[1])||(a===want[1]&&b===want[0])}
+const cardFace=c=>`<span class="${isRed(c)?'red':''}">${rankLabel(rankOf(c))}<i>${SUITS[suitOf(c)]}</i></span>`;
+function showEgg(i,cards){const e=CONFIG.eggs[i],el=$('#egg');
+  $('#egg-pair').innerHTML=cards.map(cardFace).join('');$('#egg-text').innerHTML=e.text;
+  $('#egg-tag').textContent=`彩蛋 · ${i+1} / ${CONFIG.eggs.length}`;$('#egg-sig').textContent='— '+CONFIG.signature;
+  el.hidden=false;requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('on')))}
+$('#egg').onclick=()=>{const el=$('#egg');el.classList.remove('on');setTimeout(()=>el.hidden=true,350)};
+let lastEggHand='';
+function checkEgg(){const h=hero.filter(c=>c!=null);if(h.length<2){lastEggHand='';return}
+  const key=h.slice().sort().join(',');if(key===lastEggHand)return;lastEggHand=key;
+  const i=CONFIG.eggs.findIndex(e=>eggMatch(e,h[0],h[1]));if(i<0||eggsFound.some(f=>f.i===i))return;
+  eggsFound.push({i,c:h.slice()});store.set('eggs',eggsFound);renderAlbum();setTimeout(()=>showEgg(i,h),450)}
+function renderAlbum(){const n=CONFIG.eggs.length,el=$('#album');if(!n){el.hidden=true;return}
+  el.innerHTML=`<div class="kicker"><span>牌里藏着 ${n} 个彩蛋</span><span>已找到 ${eggsFound.length}</span></div><div class="eslots">`+
+    CONFIG.eggs.map((e,i)=>{const f=eggsFound.find(x=>x.i===i);return f?`<button type="button" class="got" data-i="${i}" aria-label="重看彩蛋 ${i+1}">${f.c.map(c=>`<span class="${isRed(c)?'red':''}">${rankLabel(rankOf(c))}${SUITS[suitOf(c)]}</span>`).join('')}</button>`:`<button type="button" disabled aria-label="还没找到">?</button>`}).join('')+'</div>'}
+$('#album').onclick=e=>{const b=e.target.closest('button.got');if(!b)return;const i=+b.dataset.i;const f=eggsFound.find(x=>x.i===i);if(f)showEgg(i,f.c)};
+
 /* ---------- 给你 ---------- */
 let lastLine=-1;
 function newLine(){const L=CONFIG.lines;if(!L.length)return;let k;do{k=Math.floor(Math.random()*L.length)}while(L.length>1&&k===lastLine);lastLine=k;
@@ -675,7 +734,7 @@ function newLine(){const L=CONFIG.lines;if(!L.length)return;let k;do{k=Math.floo
 $('#again').onclick=newLine;$('#again').hidden=CONFIG.lines.length<2;$('#sig').textContent='— '+CONFIG.signature;
 if(CONFIG.together){const s=new Date(CONFIG.together+'T00:00:00');const n=Math.floor((Date.now()-s)/864e5)+1;if(n>0){$('#days').hidden=false;$('#days').innerHTML=`我们在一起的第<b>${n}</b>天`}}
 /* ---------- 启动 ---------- */
-renderSlots();renderOpps();renderOR();runEq();drawRange();drawVs();calcOdds();renderLog();renderJ();renderJPos();newLine();
+renderSlots();renderOpps();renderOR();runEq();drawRange();drawVs();calcOdds();renderLog();renderJ();renderJPos();newLine();renderAlbum();
 subTabs('range-mode',{open:'rm-open',vs:'rm-vs'},'rmode');subTabs('log-mode',{pl:'lm-pl',j:'lm-j'},'lmode');
 const route=routeFromHash();
 show(route?route[0]:store.get('tab','eq'));
