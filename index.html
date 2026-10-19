@@ -60,6 +60,7 @@ h2{margin:0 0 8px;font-size:13px;font-weight:500;color:var(--muted)}
 .list .d{grid-column:1;font-size:15px;color:var(--text);max-width:58ch}
 .list .k{grid-row:1;grid-column:2;font-size:13px;color:var(--muted);white-space:nowrap;transition:color .2s}
 .list a:hover .t,.list a:hover .k{color:var(--accent)}
+.play{margin-top:clamp(64px,8vw,96px)}
 
 footer{max-width:960px;margin:clamp(72px,9vw,112px) auto 0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 24px;font-size:13px;color:var(--muted)}
 footer nav{display:flex;gap:24px}
@@ -85,6 +86,7 @@ footer a:hover{color:var(--fg)}
       <a class="mark" href="#intro">Lotus</a>
       <nav aria-label="Main">
         <a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a>
+        <a class="hide-s" href="#play"><span class="l-en">Play</span><span class="l-zh">娱乐</span></a>
         <a class="hide-s" href="https://github.com/lotushansstudio-maker">GitHub</a>
         <a class="hide-s" href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a>
         <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">中文</span><span class="l-zh">EN</span></button>
@@ -106,6 +108,11 @@ footer a:hover{color:var(--fg)}
     <section id="works">
       <h2><span class="l-en">Selected work</span><span class="l-zh">精选作品</span></h2>
       <ol class="list">
+        <li><a href="https://github.com/lotushansstudio-maker/multi-asset-var-es-backtest">
+          <span class="t"><span class="l-en">Multi-Asset VaR &amp; ES Backtest</span><span class="l-zh">多资产 VaR 与 ES 回测</span></span>
+          <span class="k"><span class="l-en">Python ↗</span><span class="l-zh">Python ↗</span></span>
+          <span class="d"><span class="l-en">Historical simulation, EWMA and GARCH-t forecast daily risk since 2008. None passes the 99% VaR test; GARCH-t comes closest.</span><span class="l-zh">用历史模拟、EWMA 和 GARCH-t 预测 2008 年以来的每日风险。三个模型都没通过 99% VaR 检验，GARCH-t 最接近。</span></span>
+        </a></li>
         <li><a href="https://lotushansstudio-maker.github.io/AssetPricing-Dashboard/">
           <span class="t"><span class="l-en">Crypto Portfolio Lab</span><span class="l-zh">加密资产组合实验室</span></span>
           <span class="k"><span class="l-en">Dashboard ↗</span><span class="l-zh">仪表盘 ↗</span></span>
@@ -125,6 +132,17 @@ footer a:hover{color:var(--fg)}
           <span class="t"><span class="l-en">Quant Job Search Workspace</span><span class="l-zh">Quant 求职工作台</span></span>
           <span class="k"><span class="l-en">Web app ↗</span><span class="l-zh">网页应用 ↗</span></span>
           <span class="d"><span class="l-en">A bilingual web app that maps 460+ Singapore firms to the roles quant students actually fit.</span><span class="l-zh">中英双语网页应用，把新加坡 460 多家机构与量化学生真正适合的岗位对应起来。</span></span>
+        </a></li>
+      </ol>
+    </section>
+
+    <section id="play" class="play">
+      <h2><span class="l-en">Off the clock</span><span class="l-zh">娱乐</span></h2>
+      <ol class="list">
+        <li><a href="lotus/">
+          <span class="t"><span class="l-en">Lotus Poker Table</span><span class="l-zh">Lotus 牌桌</span></span>
+          <span class="k"><span class="l-en">Web app ↗</span><span class="l-zh">网页应用 ↗</span></span>
+          <span class="d"><span class="l-en">A pocket poker companion: hand equity, 6-max preflop ranges, pot odds and outs, and a session log. Add it to your home screen.</span><span class="l-zh">口袋里的德州扑克助手：手牌胜率、6 人桌翻前范围、底池赔率与 outs，还有复盘记账本。可以添加到手机主屏幕。</span></span>
         </a></li>
       </ol>
     </section>
