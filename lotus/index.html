@@ -29,7 +29,7 @@
 }
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
-html{background:var(--deep)}
+html{background:#06170f}
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--deep);color:var(--text);font-family:var(--cn);font-size:15px;line-height:1.5;
   -webkit-font-smoothing:antialiased;overscroll-behavior:none;font-variant-numeric:lining-nums}
@@ -48,8 +48,10 @@ main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;oversc
 .view{display:none;flex-direction:column;gap:22px}.view.on{display:flex}
 .kicker{font-size:11px;letter-spacing:.22em;color:var(--gold);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
 .kicker button{background:none;border:0;color:var(--text-3);font-size:12px;letter-spacing:.1em;padding:4px 0;cursor:pointer}
-nav.tabs{flex:none;display:grid;grid-template-columns:repeat(5,1fr);border-top:.5px solid var(--hair);background:rgba(6,23,15,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+nav.tabs{flex:none;position:relative;display:grid;grid-template-columns:repeat(5,1fr);border-top:.5px solid var(--hair);background:#06170f;
   padding:8px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 8px) max(8px,env(safe-area-inset-left,0px))}
+/* iOS 有时会在底栏下面留一条：把底栏的颜色往下延伸，留出来的那条也和底栏一体 */
+nav.tabs::after{content:"";position:absolute;left:0;right:0;top:100%;height:200px;background:#06170f}
 nav.tabs button{background:none;border:0;padding:6px 0;display:grid;justify-items:center;gap:3px;color:var(--text-3);font-size:11px;letter-spacing:.1em;cursor:pointer}
 nav.tabs button svg{width:22px;height:22px}
 nav.tabs button[aria-selected="true"]{color:var(--gold)}
@@ -672,6 +674,13 @@ function newLine(){const L=CONFIG.lines;if(!L.length)return;let k;do{k=Math.floo
   const el=$('#love-line');el.style.opacity=0;setTimeout(()=>{el.innerHTML=L[k];el.style.opacity=1},180)}
 $('#again').onclick=newLine;$('#again').hidden=CONFIG.lines.length<2;$('#sig').textContent='— '+CONFIG.signature;
 if(CONFIG.together){const s=new Date(CONFIG.together+'T00:00:00');const n=Math.floor((Date.now()-s)/864e5)+1;if(n>0){$('#days').hidden=false;$('#days').innerHTML=`我们在一起的第<b>${n}</b>天`}}
+/* ---------- 主屏幕全屏修正 ---------- */
+// 从主屏幕图标打开时，iOS 算出的可用高度会少掉状态栏那一截，直接按屏幕高度铺满
+function fitStandalone(){if(!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))return;
+  const a=document.querySelector('.app');const portrait=innerHeight>innerWidth;const h=portrait?Math.max(screen.height,screen.width):Math.min(screen.height,screen.width);
+  a.style.bottom='auto';a.style.height=h+'px'}
+fitStandalone();addEventListener('resize',fitStandalone);addEventListener('orientationchange',()=>setTimeout(fitStandalone,300));
+
 /* ---------- 启动 ---------- */
 renderSlots();renderOpps();renderOR();runEq();drawRange();drawVs();calcOdds();renderLog();renderJ();renderJPos();newLine();
 subTabs('range-mode',{open:'rm-open',vs:'rm-vs'},'rmode');subTabs('log-mode',{pl:'lm-pl',j:'lm-j'},'lmode');
