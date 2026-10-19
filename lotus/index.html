@@ -80,6 +80,19 @@ nav.tabs button[aria-selected="true"]{color:var(--gold)}
 .bar .w{background:linear-gradient(90deg,#a7884c,var(--gold-soft))}.bar .t{background:var(--gold-dim)}
 .legend{display:flex;justify-content:space-between;color:var(--text-2);font-size:13px;font-variant-numeric:tabular-nums}
 .made{font-family:var(--cn-serif);font-size:15px;color:var(--gold-soft)}
+.nutp{display:grid;gap:10px}
+.nrow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;color:var(--text-2)}
+.nrow b{font-family:var(--cn-serif);font-weight:600;font-size:15px;color:var(--text);text-align:right}
+.nrow b.top{color:var(--gold-soft)}
+.nmeter{height:5px;border-radius:3px;background:rgba(255,255,255,.09);overflow:hidden}
+.nmeter span{display:block;height:100%;background:linear-gradient(90deg,#a7884c,var(--gold-soft))}
+.nlist{display:grid;gap:8px;border-top:.5px solid rgba(196,164,104,.2);padding-top:10px}
+.nlist:empty{display:none}
+.ngrp{display:grid;grid-template-columns:4.2em 1fr;gap:10px;font-size:13px;align-items:baseline}
+.ngrp span{color:var(--gold);letter-spacing:.06em}
+.ngrp div{display:flex;flex-wrap:wrap;gap:4px}
+.ngrp i{font-style:normal;font-family:var(--display);font-weight:600;font-size:16px;padding:0 6px;border-radius:4px;background:rgba(241,235,220,.08);color:var(--text)}
+.ngrp i.more{font-family:var(--cn);font-size:12px;font-weight:400;color:var(--text-3);background:none}
 .hint{color:var(--text-3);font-size:13px}
 
 /* 选牌面板 */
@@ -246,6 +259,15 @@ textarea:focus{outline:none;border-color:var(--gold)}
       <div>
         <div class="kicker">公共牌</div>
         <div class="slots board" id="board"></div>
+      </div>
+      <div class="panel nutp" id="nuts" hidden>
+        <div class="kicker" style="margin-bottom:10px">牌面分析</div>
+        <div class="nrow"><span>全场最大</span><b id="nuts-best"></b></div>
+        <div class="nrow"><span>我现在</span><b id="nuts-me"></b></div>
+        <div class="nmeter"><span id="nuts-bar"></span></div>
+        <div class="hint" id="nuts-sum"></div>
+        <div id="nuts-list" class="nlist"></div>
+        <div class="hint" style="font-size:12px">只看现在桌上的公共牌，不算后面还会发的牌。</div>
       </div>
       <div>
         <div class="kicker">对手人数</div>
@@ -494,12 +516,13 @@ function runEq(){
   const lbl=$('#eq-label'),big=$('#eq-big');
   $('#orange-hint').textContent=oppRange==='RND'?'假设对手拿任意两张牌':`假设每个对手都拿着 ${oppRange} 位置开池范围里的牌，更接近实战`;
   $('#eq-empty').hidden=h.length>=2;$('#eq-out').hidden=h.length<2;
-  if(h.length<2){lbl.textContent='胜率';$('#made').textContent='';return}
+  if(h.length<2){lbl.textContent='胜率';$('#made').textContent='';$('#nuts').hidden=true;return}
   checkEgg();
   const partial=bd.length===1||bd.length===2;
   if(partial)lbl.textContent='公共牌请选满 3 张翻牌';
   const known=bd.length>=3?bd:[];
   $('#made').textContent=known.length?'当前牌型：'+CAT_NAMES[catOf(evaluate([...h,...known]))]:'';
+  analyzeBoard(h,known);
   const need=5-known.length, total=30000, useRange=oppRange!=='RND', combos=useRange?rangeCombos(oppRange):null;
   const rest=[];const used=new Set([...h,...known]);for(let c=0;c<52;c++)if(!used.has(c))rest.push(c);
   const d=rest.slice(), mark=new Int32Array(52);let stamp=0, win=0,tie=0,n=0,fails=0;
@@ -531,6 +554,29 @@ function runEq(){
     if(n<total&&fails<=20000)requestAnimationFrame(chunk);
   }
   chunk();
+}
+/* ---------- 牌面分析：全场最大 / 比我大的牌 ---------- */
+function handLabel(a,b){const ra=rankOf(a),rb=rankOf(b),hi=Math.max(ra,rb),lo=Math.min(ra,rb),L=r=>RANKS[r];
+  return hi===lo?L(hi)+L(lo):L(hi)+L(lo)+(suitOf(a)===suitOf(b)?'s':'o')}
+const nice=l=>l.replace(/T/g,'10');
+function analyzeBoard(h,bd){const box=$('#nuts');if(bd.length<3){box.hidden=true;return}box.hidden=false;
+  const used=new Set([...h,...bd]),rest=[];for(let c=0;c<52;c++)if(!used.has(c))rest.push(c);
+  const me=evaluate(h.concat(bd));let best=-1,total=0,better=0,tie=0;const groups=new Map(),bestLabels=new Map();
+  for(let i=0;i<rest.length;i++)for(let j=i+1;j<rest.length;j++){const a=rest[i],b=rest[j],sc=evaluate([a,b].concat(bd));total++;
+    if(sc>best){best=sc;bestLabels.clear()}
+    if(sc===best){const l=handLabel(a,b);bestLabels.set(l,(bestLabels.get(l)||0)+1)}
+    if(sc>me){better++;const cat=catOf(sc),l=handLabel(a,b);if(!groups.has(cat))groups.set(cat,new Map());const g=groups.get(cat);const prev=g.get(l);if(!prev||sc>prev)g.set(l,sc)}
+    else if(sc===me)tie++}
+  const bestCat=CAT_NAMES[catOf(best)],meCat=CAT_NAMES[catOf(me)];
+  const bl=[...bestLabels.keys()].slice(0,3).map(nice).join('、');
+  if(me>=best){$('#nuts-best').innerHTML=`<span style="color:var(--gold-soft)">就是你</span> · ${bestCat}`;$('#nuts-best').className='top'}
+  else{$('#nuts-best').textContent=`${bestCat} · ${bl}`;$('#nuts-best').className=''}
+  $('#nuts-me').textContent=meCat+(me>=best?'（全场最大）':'');$('#nuts-me').className=me>=best?'top':'';
+  const ahead=(total-better-tie)/total;$('#nuts-bar').style.width=((ahead+tie/total/2)*100).toFixed(1)+'%';
+  $('#nuts-sum').textContent=better?`对手的所有可能手牌里，有 ${better} 种组合比你大（${(better/total*100).toFixed(1)}%），你领先 ${(ahead*100).toFixed(1)}%。`:(tie?`没有牌比你大，有 ${tie} 种组合和你平分。`:'没有任何牌比你大，你现在是全场最大。');
+  const cats=[...groups.keys()].sort((x,y)=>y-x);
+  $('#nuts-list').innerHTML=cats.map(cat=>{const g=[...groups.get(cat).entries()].sort((x,y)=>y[1]-x[1]).map(e=>e[0]);const shown=g.slice(0,8);
+    return `<div class="ngrp"><span>${CAT_NAMES[cat]}</span><div>${shown.map(l=>`<i>${nice(l)}</i>`).join('')}${g.length>8?`<i class="more">等 ${g.length} 种</i>`:''}</div></div>`}).join('');
 }
 function setBars(w,t){$('#eq-w').style.width=(w*100)+'%';$('#eq-t').style.width=(t*100)+'%'}
 
