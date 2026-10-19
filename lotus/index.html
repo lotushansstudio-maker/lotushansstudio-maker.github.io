@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lotus 牌桌</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="theme-color" content="#08211a">
+<meta name="theme-color" content="#06170f">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Lotus">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -674,13 +674,6 @@ function newLine(){const L=CONFIG.lines;if(!L.length)return;let k;do{k=Math.floo
   const el=$('#love-line');el.style.opacity=0;setTimeout(()=>{el.innerHTML=L[k];el.style.opacity=1},180)}
 $('#again').onclick=newLine;$('#again').hidden=CONFIG.lines.length<2;$('#sig').textContent='— '+CONFIG.signature;
 if(CONFIG.together){const s=new Date(CONFIG.together+'T00:00:00');const n=Math.floor((Date.now()-s)/864e5)+1;if(n>0){$('#days').hidden=false;$('#days').innerHTML=`我们在一起的第<b>${n}</b>天`}}
-/* ---------- 主屏幕全屏修正 ---------- */
-// 从主屏幕图标打开时，iOS 算出的可用高度会少掉状态栏那一截，直接按屏幕高度铺满
-function fitStandalone(){if(!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))return;
-  const a=document.querySelector('.app');const portrait=innerHeight>innerWidth;const h=portrait?Math.max(screen.height,screen.width):Math.min(screen.height,screen.width);
-  a.style.bottom='auto';a.style.height=h+'px'}
-fitStandalone();addEventListener('resize',fitStandalone);addEventListener('orientationchange',()=>setTimeout(fitStandalone,300));
-
 /* ---------- 启动 ---------- */
 renderSlots();renderOpps();renderOR();runEq();drawRange();drawVs();calcOdds();renderLog();renderJ();renderJPos();newLine();
 subTabs('range-mode',{open:'rm-open',vs:'rm-vs'},'rmode');subTabs('log-mode',{pl:'lm-pl',j:'lm-j'},'lmode');
