@@ -204,6 +204,16 @@ textarea:focus{outline:none;border-color:var(--gold)}
 
     <!-- 胜率 -->
     <section class="view on" id="v-eq">
+      <div class="result panel">
+        <div class="kicker" id="eq-label">选两张手牌开始</div>
+        <div class="hint" id="eq-empty">点下面"我的手牌"的两个空位，选好两张牌就会自动算出胜率。</div>
+        <div class="result" id="eq-out" hidden>
+        <div class="big" id="eq-big">0<sup>%</sup></div>
+        <div class="bar"><span class="w" id="eq-w" style="width:0"></span><span class="t" id="eq-t" style="width:0"></span></div>
+        <div class="legend"><span id="eq-win">赢</span><span id="eq-tie">平分</span><span id="eq-lose">输</span></div>
+        </div>
+        <div class="made" id="made"></div>
+      </div>
       <div>
         <div class="kicker">我的手牌<button type="button" id="clear">清空</button></div>
         <div class="slots" id="hero"></div>
@@ -220,16 +230,6 @@ textarea:focus{outline:none;border-color:var(--gold)}
         <div class="kicker">对手可能拿的牌</div>
         <div class="seg caps sm" id="orange"></div>
         <div class="hint" id="orange-hint" style="margin-top:8px"></div>
-      </div>
-      <div class="result">
-        <div class="kicker" id="eq-label">选两张手牌开始</div>
-        <div class="hint" id="eq-empty">点上面"我的手牌"的两个空位，选好两张牌就会自动算出胜率。</div>
-        <div class="result" id="eq-out" hidden>
-        <div class="big" id="eq-big">0<sup>%</sup></div>
-        <div class="bar"><span class="w" id="eq-w" style="width:0"></span><span class="t" id="eq-t" style="width:0"></span></div>
-        <div class="legend"><span id="eq-win">赢</span><span id="eq-tie">平分</span><span id="eq-lose">输</span></div>
-        </div>
-        <div class="made" id="made"></div>
       </div>
     </section>
 
