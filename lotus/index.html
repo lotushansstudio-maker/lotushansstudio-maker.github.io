@@ -29,22 +29,25 @@
 }
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
-html,body{height:100%;margin:0}
+html{background:var(--deep)}
+html,body{margin:0;min-height:100%}
 body{background:var(--deep);color:var(--text);font-family:var(--cn);font-size:15px;line-height:1.5;
-  background-image:radial-gradient(130% 60% at 50% -8%,#1c4b3a 0%,var(--emerald) 42%,var(--deep) 100%);background-attachment:fixed;
   -webkit-font-smoothing:antialiased;overscroll-behavior:none;font-variant-numeric:lining-nums}
 input,input::placeholder{font-variant-numeric:lining-nums tabular-nums}
 button{font:inherit;color:inherit}
-.app{height:100%;display:flex;flex-direction:column;max-width:520px;margin:0 auto}
+/* iPhone Safari 不支持 background-attachment:fixed，用固定的底层代替 */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(130% 60% at 50% -8%,#1c4b3a 0%,var(--emerald) 42%,var(--deep) 100%)}
+.app{max-width:520px;margin:0 auto;min-height:100vh;min-height:100svh}
 header.top{padding:calc(env(safe-area-inset-top,0px) + 18px) max(20px,env(safe-area-inset-right,0px)) 12px max(20px,env(safe-area-inset-left,0px));
-  display:flex;justify-content:space-between;align-items:baseline;border-bottom:.5px solid var(--hair);margin:0 0 0}
+  display:flex;justify-content:space-between;align-items:baseline;border-bottom:.5px solid var(--hair);margin:0;
+  position:sticky;top:0;z-index:10;background:rgba(8,33,26,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 header.top h1{margin:0;font-family:var(--cn-serif);font-weight:600;font-size:21px;letter-spacing:.08em}
 header.top span{font-family:var(--caps);font-size:10px;letter-spacing:.34em;color:var(--gold)}
-main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px max(20px,env(safe-area-inset-right,0px)) 28px max(20px,env(safe-area-inset-left,0px))}
+main{padding:20px max(20px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 96px) max(20px,env(safe-area-inset-left,0px))}
 .view{display:none;flex-direction:column;gap:22px}.view.on{display:flex}
 .kicker{font-size:11px;letter-spacing:.22em;color:var(--gold);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
 .kicker button{background:none;border:0;color:var(--text-3);font-size:12px;letter-spacing:.1em;padding:4px 0;cursor:pointer}
-nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);border-top:.5px solid var(--hair);background:rgba(6,23,15,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);border-top:.5px solid var(--hair);background:rgba(6,23,15,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   padding:8px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 8px) max(8px,env(safe-area-inset-left,0px))}
 nav.tabs button{background:none;border:0;padding:6px 0;display:grid;justify-items:center;gap:3px;color:var(--text-3);font-size:11px;letter-spacing:.1em;cursor:pointer}
 nav.tabs button svg{width:22px;height:22px}
@@ -131,7 +134,7 @@ canvas#spark{width:100%;height:90px;display:block}
 .btn.ghost{background:transparent;border:.5px solid var(--hair);color:var(--text-2);font-weight:400}
 
 /* 给你 */
-#v-love{min-height:100%;justify-content:center;text-align:center;align-items:center;gap:26px;padding:20px 0}
+#v-love{min-height:calc(100svh - 220px);justify-content:center;text-align:center;align-items:center;gap:26px;padding:20px 0}
 .lotus{width:62px}
 .love-line{font-family:var(--cn-serif);font-size:20px;line-height:2;letter-spacing:.06em;max-width:15em;text-wrap:balance;transition:opacity .4s}
 .sig{font-family:var(--caps);font-size:11px;letter-spacing:.44em;color:var(--gold);padding-left:.44em}
@@ -217,9 +220,12 @@ textarea:focus{outline:none;border-color:var(--gold)}
       </div>
       <div class="result">
         <div class="kicker" id="eq-label">选两张手牌开始</div>
-        <div class="big dim" id="eq-big">—<sup>%</sup></div>
+        <div class="hint" id="eq-empty">点上面"我的手牌"的两个空位，选好两张牌就会自动算出胜率。</div>
+        <div class="result" id="eq-out" hidden>
+        <div class="big" id="eq-big">0<sup>%</sup></div>
         <div class="bar"><span class="w" id="eq-w" style="width:0"></span><span class="t" id="eq-t" style="width:0"></span></div>
-        <div class="legend"><span id="eq-win">赢 —</span><span id="eq-tie">平 —</span><span id="eq-lose">输 —</span></div>
+        <div class="legend"><span id="eq-win">赢</span><span id="eq-tie">平分</span><span id="eq-lose">输</span></div>
+        </div>
         <div class="made" id="made"></div>
       </div>
     </section>
@@ -369,7 +375,7 @@ function show(v){
   document.querySelectorAll('.view').forEach(e=>e.classList.toggle('on',e.id==='v-'+v));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===v));
   $('#title').textContent=TITLES[v][0];$('#title-en').textContent=TITLES[v][1];
-  $('#main').scrollTop=0; if(v==='log')drawSpark(); store.set('tab',v);
+  window.scrollTo(0,0); if(v==='log')drawSpark(); store.set('tab',v);
 }
 document.querySelector('nav.tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)show(b.dataset.v)});
 
@@ -444,7 +450,8 @@ function runEq(){
   const id=++job;const h=hero.filter(c=>c!=null);const bd=board.filter(c=>c!=null);
   const lbl=$('#eq-label'),big=$('#eq-big');
   $('#orange-hint').textContent=oppRange==='RND'?'假设对手拿任意两张牌':`假设每个对手都拿着 ${oppRange} 位置开池范围里的牌，更接近实战`;
-  if(h.length<2){lbl.textContent='选两张手牌开始';big.className='big dim';big.innerHTML='—<sup>%</sup>';setBars(0,0);$('#eq-win').textContent='赢 —';$('#eq-tie').textContent='平 —';$('#eq-lose').textContent='输 —';$('#made').textContent='';return}
+  $('#eq-empty').hidden=h.length>=2;$('#eq-out').hidden=h.length<2;
+  if(h.length<2){lbl.textContent='胜率';$('#made').textContent='';return}
   const partial=bd.length===1||bd.length===2;
   if(partial)lbl.textContent='公共牌请选满 3 张翻牌';
   const known=bd.length>=3?bd:[];
@@ -567,7 +574,7 @@ segOR.onclick=e=>{const b=e.target.closest('button');if(!b)return;oppRange=b.dat
 /* ---------- 子页切换 ---------- */
 function subTabs(segId,map,key){const seg=$('#'+segId);
   const set=m=>{seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));Object.entries(map).forEach(([k,el])=>$('#'+el).hidden=k!==m);store.set(key,m);if(m==='pl')drawSpark()};
-  seg.onclick=e=>{const b=e.target.closest('button');if(b){set(b.dataset.m);$('#main').scrollTop=0}};set(store.get(key,Object.keys(map)[0]))}
+  seg.onclick=e=>{const b=e.target.closest('button');if(b){set(b.dataset.m);window.scrollTo(0,0)}};set(store.get(key,Object.keys(map)[0]))}
 
 /* ---------- 面对加注（简化） ---------- */
 function parseRange(str){const set=new Set(),ix=ch=>R.indexOf(ch);
