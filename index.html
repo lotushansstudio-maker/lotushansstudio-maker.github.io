@@ -3,11 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lotus</title>
-<meta name="description" content="Lotus — a quantitative finance portfolio. Particles gather out of noise into a lotus: a Kalman-filtered stem and rose-curve petals.">
-<meta property="og:title" content="Lotus">
-<meta property="og:description" content="Out of the mud, unstained. Out of the noise, a signal.">
-<meta property="og:image" content="preview.jpg">
+<title>Hanyu (Lotus) Ke · Quantitative Finance</title>
+<meta name="description" content="Hanyu (Lotus) Ke, MSc Quantitative Finance at Singapore Management University. Selected work: VaR &amp; ES backtesting, a crypto portfolio lab, an SGX value screen and an S&amp;P 500 trend filter.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lotushansstudio-maker.github.io/">
+<meta property="og:title" content="Hanyu (Lotus) Ke · Quantitative Finance">
+<meta property="og:description" content="MSc Quantitative Finance, SMU. Risk models, portfolio backtests and market screens.">
+<meta property="og:image" content="https://lotushansstudio-maker.github.io/preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#040509">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap">
 <style>
@@ -86,7 +91,6 @@ footer a:hover{color:var(--fg)}
       <a class="mark" href="#intro">Lotus</a>
       <nav aria-label="Main">
         <a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a>
-        <a class="hide-s" href="#play"><span class="l-en">Play</span><span class="l-zh">娱乐</span></a>
         <a class="hide-s" href="https://github.com/lotushansstudio-maker">GitHub</a>
         <a class="hide-s" href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a>
         <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">中文</span><span class="l-zh">EN</span></button>
@@ -459,12 +463,17 @@ footer a:hover{color:var(--fg)}
   let t0 = 0;
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const oW = W, oH = H;
     W = stage.clientWidth; H = stage.clientHeight;
     [fc, lc].forEach((c) => { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); });
-    layout(); seed();
+    layout();
+    // first load seeds the particles; later resizes just rescale them, so the bloom doesn't scatter and flash
+    if (!P.length || !oW || !oH) seed();
+    else { const kx = W / oW, ky = H / oH; for (const q of P) { q.x *= kx; q.y *= ky; q.vx = q.vy = 0; } for (const a of A) { a.x *= kx; a.y *= ky; a.vx = a.vy = 0; } }
     fx.setTransform(dpr, 0, 0, dpr, 0, 0); fx.fillStyle = '#040509'; fx.fillRect(0, 0, W, H);
   }
-  window.addEventListener('resize', resize);
+  let rzT = 0;
+  window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(resize, 120); });
   if ('IntersectionObserver' in window) new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { threshold: 0 }).observe(stage);
 
   try {
