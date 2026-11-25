@@ -106,6 +106,9 @@ section{scroll-margin-top:64px}
 .log td{text-align:right;padding:8px 0;border-bottom:1px dashed var(--panel-rule);white-space:nowrap}
 .log th:first-child,.log td:first-child{text-align:left;padding-right:12px}
 .log tr.best td{color:var(--glow)}
+.work .shot{background:var(--panel);min-height:260px;overflow:hidden}
+.work .shot img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.work:hover .shot img{transform:scale(1.03)}
 .log .foot{margin-top:auto;margin-bottom:0;color:var(--panel-dim);font-family:var(--sans);font-size:13px}
 
 /* ---------- about + footer ---------- */
@@ -145,6 +148,7 @@ footer{margin-top:clamp(72px,10vw,128px);border-top:1px solid var(--rule);paddin
     <a class="logo" href="#">LOTUS</a>
     <nav aria-label="Main">
       <a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a>
+      <a href="visual/"><span class="l-en">Visual</span><span class="l-zh">视觉</span></a>
       <a class="hide-s" href="#about"><span class="l-en">About</span><span class="l-zh">关于</span></a>
       <a class="hide-s" href="https://github.com/lotushansstudio-maker">GitHub</a>
       <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">中文</span><span class="l-zh">EN</span></button>
@@ -285,9 +289,29 @@ footer{margin-top:clamp(72px,10vw,128px);border-top:1px solid var(--rule);paddin
     </div>
   </section>
 
+  <section class="sec" id="visual">
+    <div class="wrap">
+      <p class="fig mono"><span class="n">§2</span><span><span class="l-en">daily visual</span><span class="l-zh">每日视觉</span></span><span>n = 1</span></p>
+      <h2><span class="l-en">Daily Visual. <span class="dim">I trained as an oil painter. These days I also paint with code.</span></span><span class="l-zh">每日视觉。<span class="dim">我学油画出身，现在也用代码画画。</span></span></h2>
+      <div class="works">
+        <a class="work" href="visual/string-mandala/">
+          <div class="body">
+            <p class="fig mono"><span class="n">V.001</span><span>generative</span><span>i → i × k</span></p>
+            <h3><span class="l-en">String Mandala</span><span class="l-zh">弦线曼陀罗</span></h3>
+            <div class="metric"><b>k = 2 → 3</b><span><span class="l-en">cardioid to nephroid, one drag, 360 glowing strings</span><span class="l-zh">从心形线到肾形线，只要拖一下，360 根发光的弦</span></span></div>
+            <p class="say"><span class="l-en">Pin i is tied to pin i × k. Drag k and the curve flows between shapes, then snaps to the next whole number. Tap to pluck the strings.</span><span class="l-zh">第 i 颗钉连到第 i × k 颗。拖动 k，图形在形状之间流动，再吸附到下一个整数。点一下可以拨弦。</span></p>
+            <span class="go"><span class="l-en">Play it</span><span class="l-zh">打开玩</span> <span class="ar" aria-hidden="true">↗</span></span>
+          </div>
+          <div class="shot"><img src="visual/string-mandala/thumb.jpg" alt="String Mandala" loading="lazy" width="800" height="800"></div>
+        </a>
+      </div>
+      <p style="margin:22px 0 0"><a class="btn ghost" href="visual/"><span class="l-en">All visual pieces</span><span class="l-zh">全部视觉作品</span> <span aria-hidden="true">→</span></a></p>
+    </div>
+  </section>
+
   <section class="sec" id="about">
     <div class="wrap">
-      <p class="fig mono"><span class="n">§2</span><span><span class="l-en">priors</span><span class="l-zh">先验</span></span></p>
+      <p class="fig mono"><span class="n">§3</span><span><span class="l-en">priors</span><span class="l-zh">先验</span></span></p>
       <div class="about">
         <p><span class="l-en">I like small, honest studies. <span class="dim">Pick one question, use only data that was known at the time, and write down where it breaks. If a result only works with hindsight, it doesn't count.</span></span><span class="l-zh">我喜欢小而诚实的研究。<span class="dim">只问一个问题，只用当时就能拿到的数据，再把它在哪里失效写下来。只有事后诸葛亮才成立的结果，不算数。</span></span></p>
         <ul class="specs">
@@ -304,7 +328,7 @@ footer{margin-top:clamp(72px,10vw,128px);border-top:1px solid var(--rule);paddin
 <footer>
   <div class="wrap">
     <div class="cols">
-      <div><h4 class="mono"><span class="l-en">Pages</span><span class="l-zh">页面</span></h4><a href="#"><span class="l-en">Home</span><span class="l-zh">首页</span></a><a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a><a href="#about"><span class="l-en">About</span><span class="l-zh">关于</span></a><a href="card/"><span class="l-en">Card</span><span class="l-zh">名片</span></a></div>
+      <div><h4 class="mono"><span class="l-en">Pages</span><span class="l-zh">页面</span></h4><a href="#"><span class="l-en">Home</span><span class="l-zh">首页</span></a><a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a><a href="visual/"><span class="l-en">Visual</span><span class="l-zh">视觉</span></a><a href="#about"><span class="l-en">About</span><span class="l-zh">关于</span></a><a href="card/"><span class="l-en">Card</span><span class="l-zh">名片</span></a></div>
       <div><h4 class="mono"><span class="l-en">Elsewhere</span><span class="l-zh">其他</span></h4><a href="https://github.com/lotushansstudio-maker">GitHub</a><a href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a></div>
       <div><h4 class="mono"><span class="l-en">Projects</span><span class="l-zh">项目</span></h4><a href="https://github.com/lotushansstudio-maker/multi-asset-var-es-backtest">VaR &amp; ES</a><a href="https://lotushansstudio-maker.github.io/AssetPricing-Dashboard/">Crypto Lab</a><a href="https://github.com/lotushansstudio-maker/sp500-trend-filter-backtest">Trend Filter</a></div>
       <div><h4 class="mono"><span class="l-en">Status</span><span class="l-zh">状态</span></h4><p><span class="l-en">Based in Singapore. LinkedIn is the fastest way to reach me.</span><span class="l-zh">人在新加坡。LinkedIn 联系我最快。</span></p><a class="btn solid" href="https://www.linkedin.com/in/hanyu-ke-lotus" style="display:inline-flex;color:#fff"><span class="l-en">Say hello</span><span class="l-zh">打个招呼</span> ↗</a></div>
