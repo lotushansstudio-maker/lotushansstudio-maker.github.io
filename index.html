@@ -4,147 +4,316 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lotus</title>
-<meta name="description" content="Lotus — a quantitative finance portfolio. Particles gather out of noise into a lotus: a Kalman-filtered stem and rose-curve petals.">
+<meta name="description" content="Hanyu (Lotus) Ke — quantitative finance. Small, honest studies of risk models, portfolios and trading rules.">
 <meta property="og:title" content="Lotus">
 <meta property="og:description" content="Out of the mud, unstained. Out of the noise, a signal.">
-<meta property="og:image" content="preview.jpg">
-<meta name="theme-color" content="#040509">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap">
+<meta name="theme-color" content="#ECE9E1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap">
 <style>
-/* One typeface (Inter, Noto Sans SC for Chinese), two weights, neutral greys. A full-screen hero where particles gather from noise into a Kalman-filter stem and a 3-D rose-curve lotus, then a plain list of work. EN default, 中 toggle. */
+/* Paper page, ink type, one blue. Small monospace "figure" labels frame each section like panels on an instrument. The lotus runs live inside a dark panel in the hero. EN default, 中 toggle. */
 :root{
-  --bg:#050608; --fg:#F2F3F5; --text:rgba(242,243,245,.66); --muted:rgba(242,243,245,.42); --rule:rgba(255,255,255,.08);
-  --accent:#9DB8FF;
+  --paper:#ECE9E1; --paper-2:#E3DFD5; --ink:#17171B; --text:#3E3E46; --muted:#6E6D74; --rule:rgba(23,23,27,.12);
+  --accent:#3B4FE4; --accent-ink:#fff;
+  --panel:#040509; --panel-fg:#E8ECF5; --panel-dim:rgba(232,236,245,.5); --panel-rule:rgba(255,255,255,.08);
   --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   --cjk:'Inter','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
-  --m:clamp(20px,4.5vw,64px);
-  color-scheme:dark;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --m:clamp(16px,4vw,56px);
+  color-scheme:light;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--fg);font:400 15px/1.6 var(--sans);-webkit-font-smoothing:antialiased;font-feature-settings:"ss01","cv11"}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
 :root[data-lang="zh"] body{font-family:var(--cjk)}
 :root:not([data-lang="zh"]) .l-zh{display:none!important}
 :root[data-lang="zh"] .l-en{display:none!important}
 a{color:inherit;text-decoration:none}
-a:focus-visible,button:focus-visible{outline:1px solid var(--accent);outline-offset:4px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.mono{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--m)}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:20;background:rgba(236,233,225,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid transparent;transition:border-color .2s}
+.top.scrolled{border-color:var(--rule)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;height:64px}
+.logo{font-family:var(--mono);font-weight:500;font-size:15px;letter-spacing:.18em;color:var(--accent)}
+.top nav{display:flex;align-items:center;gap:clamp(14px,2.2vw,28px);font-size:14px;color:var(--text)}
+.top nav a:hover,.top nav button:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:8px;font-size:14px;font-weight:500;transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn.solid{background:var(--accent);color:var(--accent-ink)}
+.btn.solid:hover{background:#2E40CC}
+.btn.ghost{background:var(--paper-2);color:var(--ink)}
+.btn.ghost:hover{background:#D9D4C8}
+.top .btn{height:34px;padding:0 12px;font-size:13px}
 
 /* ---------- hero ---------- */
-#intro{position:relative;height:100vh;height:100dvh}
-#stage{position:sticky;top:0;height:100%;overflow:hidden;background:var(--bg);cursor:crosshair}
+.hero{padding:clamp(28px,5vw,64px) 0 clamp(56px,8vw,104px)}
+.hero .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:clamp(28px,5vw,72px);align-items:center}
+.hi{font-size:clamp(28px,3.4vw,44px);line-height:1.1;letter-spacing:-.02em;margin:0;font-weight:500}
+.name{display:block;margin-top:6px;font-family:var(--mono);font-weight:500;font-size:clamp(28px,3.3vw,46px);letter-spacing:-.01em;color:var(--accent);line-height:1.05}
+.name .cur{display:inline-block;width:.55em;height:.8em;margin-left:.08em;background:var(--accent);vertical-align:-.04em;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.lede{margin:22px 0 0;max-width:30em;font-size:clamp(15px,1.25vw,17px);color:var(--text)}
+.role{margin:18px 0 0;color:var(--muted)}
+.ctas{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+
+.panel{position:relative;background:var(--panel);color:var(--panel-fg);border-radius:14px;overflow:hidden;box-shadow:0 30px 60px -30px rgba(10,12,30,.45),0 0 0 1px rgba(0,0,0,.04)}
+.panel-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 14px;border-bottom:1px solid var(--panel-rule);color:var(--panel-dim)}
+.dots{display:flex;gap:6px}.dots i{width:9px;height:9px;border-radius:50%;background:#2A2D36}
+.live{display:inline-flex;align-items:center;gap:7px;color:var(--panel-fg)}
+.live::before{content:"";width:6px;height:6px;border-radius:50%;background:#5CE08A;box-shadow:0 0 8px #5CE08A}
+#stage{position:relative;height:clamp(340px,52vh,520px);cursor:crosshair}
 #field,#lines{position:absolute;inset:0;width:100%;height:100%;display:block}
-#vignette{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,0) 55%,rgba(0,0,0,.6) 100%)}
+#vignette{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse 80% 75% at 50% 46%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+.hint{position:absolute;left:14px;bottom:12px;z-index:3;color:var(--panel-dim);pointer-events:none}
+.readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--panel-rule)}
+.readout div{padding:10px 14px;border-left:1px solid var(--panel-rule)}
+.readout div:first-child{border-left:0}
+section{scroll-margin-top:64px}
+.readout .mono{display:block;color:var(--panel-dim);font-size:10px}
+.readout b{display:block;margin-top:2px;font:500 14px/1.3 var(--mono);color:var(--panel-fg);white-space:nowrap}
 
-.top{position:absolute;left:var(--m);right:var(--m);top:calc(var(--m) * .6 + env(safe-area-inset-top,0px));z-index:5;display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:14px;color:var(--text)}
-.top .mark{color:var(--fg);font-weight:500}
-.top nav{display:flex;gap:clamp(16px,2.4vw,32px);align-items:center}
-.top nav a:hover,.top nav button:hover{color:var(--fg)}
-
-.label{position:absolute;left:var(--m);bottom:calc(var(--m) + env(safe-area-inset-bottom,0px));z-index:4;max-width:min(520px,calc(100% - 2 * var(--m)));pointer-events:none;opacity:0;transition:opacity 1.2s ease .3s}
-.label.on{opacity:1}
-.label h1{margin:0;font-weight:500;font-size:clamp(34px,4.2vw,56px);line-height:1.08;letter-spacing:-.025em}
-.label .role{margin:14px 0 0;font-size:clamp(15px,1.2vw,17px);color:var(--text)}
-.label .cta{display:inline-flex;gap:8px;margin-top:28px;pointer-events:auto;font-size:14px;color:var(--fg);border-bottom:1px solid var(--muted);padding-bottom:3px}
-.label .cta:hover{border-color:var(--fg)}
+/* ---------- figure label ---------- */
+.fig{display:flex;align-items:center;gap:10px;color:var(--muted);margin:0 0 14px}
+.fig .n{color:var(--ink)}
+.fig::after{content:"";flex:1;height:1px;background:var(--rule)}
 
 /* ---------- work ---------- */
-main{padding:clamp(72px,10vw,128px) var(--m) 48px}
-.wrap{max-width:960px;margin:0 auto}
-.about{margin:0 0 clamp(64px,8vw,96px);font-size:clamp(20px,2vw,26px);line-height:1.45;letter-spacing:-.012em;color:var(--fg);max-width:30em}
-.about .dim{color:var(--muted)}
-h2{margin:0 0 8px;font-size:13px;font-weight:500;color:var(--muted)}
-.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
-.list a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 32px;padding:26px 0;border-bottom:1px solid var(--rule)}
-.list .t{font-size:18px;font-weight:500;letter-spacing:-.01em}
-.list .d{grid-column:1;font-size:15px;color:var(--text);max-width:58ch}
-.list .k{grid-row:1;grid-column:2;font-size:13px;color:var(--muted);white-space:nowrap;transition:color .2s}
-.list a:hover .t,.list a:hover .k{color:var(--accent)}
-.play{margin-top:clamp(64px,8vw,96px)}
+.sec{padding:clamp(56px,8vw,104px) 0 0}
+.sec h2{margin:0 0 clamp(28px,4vw,44px);font-size:clamp(26px,3vw,38px);font-weight:500;letter-spacing:-.02em;line-height:1.15;max-width:22em}
+.sec h2 .dim{color:var(--muted)}
+.works{display:grid;gap:clamp(18px,2.4vw,28px)}
+.work{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:0;background:#F5F3EE;border:1px solid var(--rule);border-radius:14px;overflow:hidden;transition:border-color .2s,transform .2s}
+.work:hover{border-color:rgba(59,79,228,.45);transform:translateY(-2px)}
+.work .body{padding:clamp(20px,2.6vw,32px);display:flex;flex-direction:column}
+.work h3{margin:0;font-size:clamp(19px,1.7vw,23px);font-weight:500;letter-spacing:-.012em;line-height:1.25}
+.metric{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin:18px 0 0}
+.metric b{font:500 clamp(30px,3.4vw,44px)/1 var(--mono);letter-spacing:-.03em;color:var(--accent)}
+.metric span{font-size:13px;color:var(--muted);max-width:22em}
+.say{margin:18px 0 0;font-size:15px;color:var(--text);max-width:40ch}
+.go{margin-top:auto;padding-top:22px;display:inline-flex;gap:8px;align-items:center;font-size:14px;font-weight:500;color:var(--ink)}
+.work:hover .go{color:var(--accent)}
+.go .ar{transition:transform .2s}.work:hover .go .ar{transform:translateX(3px)}
 
-footer{max-width:960px;margin:clamp(72px,9vw,112px) auto 0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 24px;font-size:13px;color:var(--muted)}
-footer nav{display:flex;gap:24px}
-footer a:hover{color:var(--fg)}
+.log{background:var(--panel);color:var(--panel-fg);padding:18px 18px 16px;font:400 12.5px/1.5 var(--mono);display:flex;flex-direction:column;gap:12px;min-width:0}
+.log .head{display:flex;justify-content:space-between;color:var(--panel-dim);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
+.call{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 12px;padding:10px 12px;border:1px solid var(--panel-rule);border-radius:8px;background:rgba(255,255,255,.02)}
+.call .v{color:#8FA2FF}
+.call .a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.call .t{color:var(--panel-dim);text-align:right}
+.call .r{grid-column:2/4;color:var(--panel-dim)}
+.call .r em{font-style:normal;color:#E8ECF5}
+.call .r .bad{color:#FF8E7A}.call .r .ok{color:#7BE3A0}
+.log .foot{margin-top:auto;color:var(--panel-dim);font-family:var(--sans);font-size:13px;font-style:italic}
 
+/* ---------- about + footer ---------- */
+.about{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(24px,5vw,72px)}
+.about p{margin:0;font-size:clamp(18px,1.7vw,22px);line-height:1.5;letter-spacing:-.01em}
+.about p .dim{color:var(--muted)}
+.specs{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.specs li{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.specs .mono{color:var(--muted)}
+
+footer{margin-top:clamp(72px,10vw,128px);border-top:1px solid var(--rule);padding:clamp(36px,5vw,56px) 0 40px}
+.cols{display:grid;grid-template-columns:1.2fr 1fr 1fr 1.6fr;gap:28px}
+.cols h4{margin:0 0 12px;font-weight:500;color:var(--muted)}
+.cols a{display:block;padding:3px 0;font-size:14px;color:var(--text)}
+.cols a:hover{color:var(--accent)}
+.cols p{margin:0 0 16px;font-size:14px;color:var(--text);max-width:30em}
+.sign{margin-top:44px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+
+@media (max-width:900px){
+  .hero .wrap{grid-template-columns:minmax(0,1fr)}
+  .work{grid-template-columns:minmax(0,1fr)}
+  .about{grid-template-columns:minmax(0,1fr)}
+  .cols{grid-template-columns:1fr 1fr}
+}
 @media (max-width:640px){
   .top nav .hide-s{display:none}
-  .list a{grid-template-columns:minmax(0,1fr)}
-  .list .k{grid-row:auto;grid-column:1;order:3;margin-top:4px}
+  #stage{height:360px}
+  .readout{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .readout div:nth-child(3){border-left:0}
+  .readout div:nth-child(n+3){border-top:1px solid var(--panel-rule)}
+  .hint{display:none}
 }
-@media (prefers-reduced-motion: reduce){ .label{transition:none} html{scroll-behavior:auto} }
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} .name .cur{animation:none} .work,.btn,.go .ar{transition:none} }
 </style>
 </head>
 <body>
 
-<section id="intro" aria-label="Hanyu (Lotus) Ke">
-  <div id="stage">
-    <canvas id="field" aria-hidden="true"></canvas>
-    <canvas id="lines" role="img" aria-label="Particles gather from noise into a glowing lotus. Move to stir them, click to send a shock."></canvas>
-    <div id="vignette" aria-hidden="true"></div>
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="logo" href="#">LOTUS</a>
+    <nav aria-label="Main">
+      <a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a>
+      <a class="hide-s" href="#about"><span class="l-en">About</span><span class="l-zh">关于</span></a>
+      <a class="hide-s" href="https://github.com/lotushansstudio-maker">GitHub</a>
+      <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">中文</span><span class="l-zh">EN</span></button>
+      <a class="btn solid" href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a>
+    </nav>
+  </div>
+</header>
 
-    <header class="top">
-      <a class="mark" href="#intro">Lotus</a>
-      <nav aria-label="Main">
-        <a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a>
-        <a class="hide-s" href="#play"><span class="l-en">Play</span><span class="l-zh">娱乐</span></a>
-        <a class="hide-s" href="https://github.com/lotushansstudio-maker">GitHub</a>
-        <a class="hide-s" href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a>
-        <button type="button" data-lang-toggle aria-label="Switch language 切换语言"><span class="l-en">中文</span><span class="l-zh">EN</span></button>
-      </nav>
-    </header>
+<section class="hero" id="intro" aria-label="Hanyu (Lotus) Ke">
+  <div class="wrap">
+    <div>
+      <p class="fig mono"><span class="n">FIG 00</span><span>SYS.HELLO</span></p>
+      <h1 class="hi"><span class="l-en">Hi, I'm</span><span class="l-zh">你好，我是</span>
+        <span class="name">HANYU (LOTUS) KE<span class="cur" aria-hidden="true"></span></span></h1>
+      <p class="lede"><span class="l-en">I pull signals out of noisy markets, then check honestly whether they survive. Risk models, portfolios and trading rules, with the method, data and limits in the open.</span><span class="l-zh">我从嘈杂的市场里找信号，再老老实实地检验它们能不能站得住。风险模型、投资组合和交易规则，方法、数据和局限都公开写清楚。</span></p>
+      <p class="role mono"><span class="l-en">MSc Quantitative Finance · SMU · Singapore</span><span class="l-zh">量化金融硕士 · 新加坡管理大学 · 新加坡</span></p>
+      <div class="ctas">
+        <a class="btn solid" href="#works"><span class="l-en">See the work</span><span class="l-zh">看作品</span> <span aria-hidden="true">↓</span></a>
+        <a class="btn ghost" href="https://github.com/lotushansstudio-maker">GitHub ↗</a>
+      </div>
+    </div>
 
-    <div class="label">
-      <h1>Hanyu (Lotus) Ke</h1>
-      <p class="role"><span class="l-en">Quantitative finance · MSc, Singapore Management University</span><span class="l-zh">量化金融 · 新加坡管理大学硕士</span></p>
-      <a class="cta" href="#works"><span class="l-en">Selected work</span><span class="l-zh">精选作品</span><span aria-hidden="true">↓</span></a>
+    <div class="panel">
+      <div class="panel-bar mono">
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>FIG 01 · SYS.SIGNAL</span>
+        <span class="live">LIVE</span>
+      </div>
+      <div id="stage">
+        <canvas id="field" aria-hidden="true"></canvas>
+        <canvas id="lines" role="img" aria-label="Particles gather from noise into a glowing lotus. Move to stir them, click to send a shock."></canvas>
+        <div id="vignette" aria-hidden="true"></div>
+        <span class="hint mono"><span class="l-en">move to stir · click to shock</span><span class="l-zh">移动搅动 · 点击冲击</span></span>
+      </div>
+      <div class="readout" aria-live="off">
+        <div><span class="mono"><span class="l-en">phase</span><span class="l-zh">阶段</span></span><b id="ro-phase">NOISE</b></div>
+        <div><span class="mono" style="text-transform:none">y<sub>t</sub> = x<sub>t</sub> + ε<sub>t</sub></span><b id="ro-n">0</b></div>
+        <div><span class="mono"><span class="l-en">signal / noise</span><span class="l-zh">信号 / 噪声</span></span><b id="ro-snr">0.00</b></div>
+        <div><span class="mono"><span class="l-en">last shock</span><span class="l-zh">最近冲击</span></span><b id="ro-shock">—</b></div>
+      </div>
     </div>
   </div>
 </section>
 
-<main id="content">
-  <div class="wrap">
-    <p class="about"><span class="l-en">I build small, honest quantitative studies. <span class="dim">Factor screens, rule-based backtests and portfolio tools, each with its method, data and limits in the open.</span></span><span class="l-zh">我做小而诚实的量化研究。<span class="dim">因子筛选、规则回测和组合工具，每个项目都公开写明方法、数据和局限。</span></span></p>
+<main>
+  <section class="sec" id="works">
+    <div class="wrap">
+      <p class="fig mono"><span class="n">FIG 02</span><span>SYS.WORKS</span><span>05 <span class="l-en">entries</span><span class="l-zh">条</span></span></p>
+      <h2><span class="l-en">Selected work. <span class="dim">Each one ends with a number, including the ones that didn't go my way.</span></span><span class="l-zh">精选作品。<span class="dim">每个都落在一个数字上，包括结果不如我意的那些。</span></span></h2>
 
-    <section id="works">
-      <h2><span class="l-en">Selected work</span><span class="l-zh">精选作品</span></h2>
-      <ol class="list">
-        <li><a href="https://github.com/lotushansstudio-maker/multi-asset-var-es-backtest">
-          <span class="t"><span class="l-en">Multi-Asset VaR &amp; ES Backtest</span><span class="l-zh">多资产 VaR 与 ES 回测</span></span>
-          <span class="k"><span class="l-en">Python ↗</span><span class="l-zh">Python ↗</span></span>
-          <span class="d"><span class="l-en">Historical simulation, EWMA and GARCH-t forecast daily risk since 2008. None passes the 99% VaR test; GARCH-t comes closest.</span><span class="l-zh">用历史模拟、EWMA 和 GARCH-t 预测 2008 年以来的每日风险。三个模型都没通过 99% VaR 检验，GARCH-t 最接近。</span></span>
-        </a></li>
-        <li><a href="https://lotushansstudio-maker.github.io/AssetPricing-Dashboard/">
-          <span class="t"><span class="l-en">Crypto Portfolio Lab</span><span class="l-zh">加密资产组合实验室</span></span>
-          <span class="k"><span class="l-en">Dashboard ↗</span><span class="l-zh">仪表盘 ↗</span></span>
-          <span class="d"><span class="l-en">Does stabilising a noisy mean-variance optimiser beat simple equal weight? An interactive dashboard.</span><span class="l-zh">稳定化的均值方差优化，能否跑赢简单的等权组合？一个交互式仪表盘。</span></span>
-        </a></li>
-        <li><a href="https://github.com/lotushansstudio-maker/sgx-value-screen-backtest">
-          <span class="t"><span class="l-en">SGX Value Screen</span><span class="l-zh">新加坡股市价值筛选</span></span>
-          <span class="k"><span class="l-en">Python ↗</span><span class="l-zh">Python ↗</span></span>
-          <span class="d"><span class="l-en">Which Singapore stocks look cheap today, and has buying the highest yielders paid off since 2010?</span><span class="l-zh">哪些新加坡股票现在便宜？2010 年以来买高股息股票是否真的有效？</span></span>
-        </a></li>
-        <li><a href="https://github.com/lotushansstudio-maker/sp500-trend-filter-backtest">
-          <span class="t"><span class="l-en">S&amp;P 500 Trend Filter</span><span class="l-zh">标普 500 趋势过滤</span></span>
-          <span class="k"><span class="l-en">Python ↗</span><span class="l-zh">Python ↗</span></span>
-          <span class="d"><span class="l-en">A 10-month moving-average rule over 76 years: similar return, max drawdown cut from −51% to −19%.</span><span class="l-zh">76 年的 10 个月均线规则：收益相近，最大回撤从 −51% 降到 −19%。</span></span>
-        </a></li>
-        <li><a href="https://github.com/lotushansstudio-maker/quant-job-search-workspace">
-          <span class="t"><span class="l-en">Quant Job Search Workspace</span><span class="l-zh">Quant 求职工作台</span></span>
-          <span class="k"><span class="l-en">Web app ↗</span><span class="l-zh">网页应用 ↗</span></span>
-          <span class="d"><span class="l-en">A bilingual web app that maps 460+ Singapore firms to the roles quant students actually fit.</span><span class="l-zh">中英双语网页应用，把新加坡 460 多家机构与量化学生真正适合的岗位对应起来。</span></span>
-        </a></li>
-      </ol>
-    </section>
-  </div>
+      <div class="works">
+        <a class="work" href="https://github.com/lotushansstudio-maker/multi-asset-var-es-backtest">
+          <div class="body">
+            <p class="fig mono"><span class="n">FIG 02.1</span><span>SYS.RISK</span></p>
+            <h3><span class="l-en">Multi-Asset VaR &amp; ES Backtest</span><span class="l-zh">多资产 VaR 与 ES 回测</span></h3>
+            <div class="metric"><b>61 / 47</b><span><span class="l-en">99% VaR breaches vs expected, best of five models, 2008–2026</span><span class="l-zh">99% VaR 实际突破次数 / 预期次数，五个模型中最好的一个，2008–2026</span></span></div>
+            <p class="say"><span class="l-en">I added two models after the first three all failed, so I made myself grade them on 2019 onwards only. They mostly fail there too.</span><span class="l-zh">前三个模型全挂了我才加了两个新的，所以我逼自己只用 2019 年以后的数据给它们打分。结果大多还是没过。</span></p>
+            <span class="go"><span class="l-en">Read the repo</span><span class="l-zh">查看代码</span> <span class="ar" aria-hidden="true">→</span></span>
+          </div>
+          <div class="log" aria-hidden="true">
+            <div class="head"><span>3 runs</span><span>python</span></div>
+            <div class="call"><span class="v">fit</span><span class="a">gjr_garch --dist t</span><span class="t">20d</span><span class="r">refit every <em>20</em> trading days</span></div>
+            <div class="call"><span class="v">test</span><span class="a">kupiec --var 0.99</span><span class="t">4,729d</span><span class="r">filtered HS p = <em class="ok">0.055</em> · pass</span></div>
+            <div class="call"><span class="v">test</span><span class="a">dq --lags 4</span><span class="t">4,729d</span><span class="r">p = <em class="bad">0.023</em> · still fails</span></div>
+            <p class="foot"><span class="l-en">Worst day: 18 Mar 2020, −4.57%.</span><span class="l-zh">最糟的一天：2020 年 3 月 18 日，−4.57%。</span></p>
+          </div>
+        </a>
 
-  <footer>
-    <span>© 2026 Hanyu (Lotus) Ke</span>
-    <nav aria-label="Elsewhere">
-      <a href="https://github.com/lotushansstudio-maker">GitHub</a>
-      <a href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a>
-    </nav>
-  </footer>
+        <a class="work" href="https://lotushansstudio-maker.github.io/AssetPricing-Dashboard/">
+          <div class="body">
+            <p class="fig mono"><span class="n">FIG 02.2</span><span>SYS.PORTFOLIO</span></p>
+            <h3><span class="l-en">Crypto Portfolio Lab</span><span class="l-zh">加密资产组合实验室</span></h3>
+            <div class="metric"><b>0.68</b><span><span class="l-en">Sharpe of plain equal weight, the winner out of sample</span><span class="l-zh">简单等权组合的样本外夏普比率，最终胜出</span></span></div>
+            <p class="say"><span class="l-en">We spent weeks stabilising a mean-variance optimiser. Equal weight still won. Short, noisy history beats clever maths.</span><span class="l-zh">我们花了好几周去稳定均值方差优化器，结果还是等权赢了。历史数据又短又吵的时候，聪明的数学敌不过简单。</span></p>
+            <span class="go"><span class="l-en">Open the dashboard</span><span class="l-zh">打开仪表盘</span> <span class="ar" aria-hidden="true">↗</span></span>
+          </div>
+          <div class="log" aria-hidden="true">
+            <div class="head"><span>3 runs</span><span>browser</span></div>
+            <div class="call"><span class="v">screen</span><span class="a">corr(BTC) ≥ 0.5</span><span class="t">8 → 7</span><span class="r">assets kept</span></div>
+            <div class="call"><span class="v">nudge</span><span class="a">μ ± 1%</span><span class="t">1.20×</span><span class="r">naive weights <em class="bad">swing hard</em></span></div>
+            <div class="call"><span class="v">backtest</span><span class="a">window 104w</span><span class="t">2018–26</span><span class="r">equal weight <em class="ok">0.68</em> · worst optimised <em class="bad">−0.67</em></span></div>
+            <p class="foot"><span class="l-en">SMU QF600 group project.</span><span class="l-zh">SMU QF600 小组项目。</span></p>
+          </div>
+        </a>
+
+        <a class="work" href="https://github.com/lotushansstudio-maker/sp500-trend-filter-backtest">
+          <div class="body">
+            <p class="fig mono"><span class="n">FIG 02.3</span><span>SYS.TREND</span></p>
+            <h3><span class="l-en">S&amp;P 500 Trend Filter</span><span class="l-zh">标普 500 趋势过滤</span></h3>
+            <div class="metric"><b>−51% → −19%</b><span><span class="l-en">worst drawdown, buy and hold vs a 10-month moving-average rule, 1950–2026</span><span class="l-zh">最大回撤：买入持有 vs 10 个月均线规则，1950–2026</span></span></div>
+            <p class="say"><span class="l-en">Same return, a lot less pain. It still didn't save anyone in March 2020, and I say so in the README.</span><span class="l-zh">收益差不多，痛苦少很多。不过 2020 年 3 月它也没救下谁，这点我在 README 里写明了。</span></p>
+            <span class="go"><span class="l-en">Read the repo</span><span class="l-zh">查看代码</span> <span class="ar" aria-hidden="true">→</span></span>
+          </div>
+          <div class="log" aria-hidden="true">
+            <div class="head"><span>3 runs</span><span>python</span></div>
+            <div class="call"><span class="v">rule</span><span class="a">price &gt; sma(10m)</span><span class="t">+1m lag</span><span class="r">CAGR <em>8.6%</em> vs <em>8.3%</em></span></div>
+            <div class="call"><span class="v">sweep</span><span class="a">sma 6..14m</span><span class="t">9 runs</span><span class="r"><em class="ok">all</em> beat buy &amp; hold on ret/vol</span></div>
+            <div class="call"><span class="v">stress</span><span class="a">covid 2020</span><span class="t">1 month</span><span class="r"><em class="bad">−19.1%</em> · same as holding</span></div>
+            <p class="foot"><span class="l-en">Still works after it was published.</span><span class="l-zh">规则公开发表之后依然有效。</span></p>
+          </div>
+        </a>
+
+        <a class="work" href="https://github.com/lotushansstudio-maker/sgx-value-screen-backtest">
+          <div class="body">
+            <p class="fig mono"><span class="n">FIG 02.4</span><span>SYS.VALUE</span></p>
+            <h3><span class="l-en">SGX Value Screen</span><span class="l-zh">新加坡股市价值筛选</span></h3>
+            <div class="metric"><b>+1.0%</b><span><span class="l-en">a year from buying the highest SGX yielders, vs the same stocks equal-weighted</span><span class="l-zh">每年超额：买入新加坡高股息股票 vs 同一批股票等权</span></span></div>
+            <p class="say"><span class="l-en">High yield did beat its own universe. With a t-stat of 0.75, I wouldn't bet the house on it.</span><span class="l-zh">高股息确实跑赢了自己的股票池。但 t 值只有 0.75，我不会押上全部身家。</span></p>
+            <span class="go"><span class="l-en">Read the repo</span><span class="l-zh">查看代码</span> <span class="ar" aria-hidden="true">→</span></span>
+          </div>
+          <div class="log" aria-hidden="true">
+            <div class="head"><span>3 runs</span><span>python</span></div>
+            <div class="call"><span class="v">screen</span><span class="a">E/P · B/P · yield</span><span class="t">0–100</span><span class="r">REITs ranked <em>separately</em></span></div>
+            <div class="call"><span class="v">backtest</span><span class="a">top third by yield</span><span class="t">2010–26</span><span class="r">CAGR <em>13.1%</em> vs STI <em>6.8%</em></span></div>
+            <div class="call"><span class="v">check</span><span class="a">cost 0.5% / side</span><span class="t">robust</span><span class="r">edge shrinks to <em class="bad">0.1%</em></span></div>
+            <p class="foot"><span class="l-en">Cheap stocks are often cheap for a reason.</span><span class="l-zh">便宜的股票往往有便宜的理由。</span></p>
+          </div>
+        </a>
+
+        <a class="work" href="https://github.com/lotushansstudio-maker/quant-job-search-workspace">
+          <div class="body">
+            <p class="fig mono"><span class="n">FIG 02.5</span><span>SYS.TOOLS</span></p>
+            <h3><span class="l-en">Quant Job Search Workspace</span><span class="l-zh">Quant 求职工作台</span></h3>
+            <div class="metric"><b>460+</b><span><span class="l-en">Singapore firms mapped to the quant roles students actually fit</span><span class="l-zh">家新加坡机构，对应到量化学生真正适合的岗位</span></span></div>
+            <p class="say"><span class="l-en">I built it for my own internship search, then shaped it so other students could use it too.</span><span class="l-zh">本来是给自己找实习做的，后来改成了其他同学也能用的工具。</span></p>
+            <span class="go"><span class="l-en">See how it works</span><span class="l-zh">看看怎么做的</span> <span class="ar" aria-hidden="true">→</span></span>
+          </div>
+          <div class="log" aria-hidden="true">
+            <div class="head"><span>3 runs</span><span>web app</span></div>
+            <div class="call"><span class="v">assess</span><span class="a">scenarios + cv</span><span class="t">en / 中</span><span class="r">front · middle · back office</span></div>
+            <div class="call"><span class="v">rank</span><span class="a">fit × barrier</span><span class="t">460+</span><span class="r">firms ranked for <em>your</em> path</span></div>
+            <div class="call"><span class="v">draft</span><span class="a">replies --review</span><span class="t">0 auto-sent</span><span class="r">every message is a <em class="ok">draft</em></span></div>
+            <p class="foot"><span class="l-en">In daily use for my own search.</span><span class="l-zh">我自己每天都在用。</span></p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="about">
+    <div class="wrap">
+      <p class="fig mono"><span class="n">FIG 03</span><span>SYS.ABOUT</span></p>
+      <div class="about">
+        <p><span class="l-en">I like small, honest studies. <span class="dim">Pick one question, use only data that was known at the time, and write down where it breaks. The lotus up top is the same idea: noisy observations, a Kalman filter, and a flower that only shows up once the noise is filtered out.</span></span><span class="l-zh">我喜欢小而诚实的研究。<span class="dim">只问一个问题，只用当时就能拿到的数据，再把它在哪里失效写下来。上面的莲花也是这个意思：带噪声的观测，一个卡尔曼滤波，噪声滤掉之后花才出现。</span></span></p>
+        <ul class="specs">
+          <li><span class="mono"><span class="l-en">Study</span><span class="l-zh">学习</span></span><span><span class="l-en">MSc Quantitative Finance, SMU</span><span class="l-zh">新加坡管理大学 量化金融硕士</span></span></li>
+          <li><span class="mono"><span class="l-en">Focus</span><span class="l-zh">方向</span></span><span><span class="l-en">Risk models · portfolios · backtests</span><span class="l-zh">风险模型 · 投资组合 · 回测</span></span></li>
+          <li><span class="mono"><span class="l-en">Tools</span><span class="l-zh">工具</span></span><span>Python · pandas · arch · JS</span></li>
+          <li><span class="mono"><span class="l-en">Based in</span><span class="l-zh">所在地</span></span><span><span class="l-en">Singapore</span><span class="l-zh">新加坡</span></span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
 </main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div><h4 class="mono"><span class="l-en">Pages</span><span class="l-zh">页面</span></h4><a href="#"><span class="l-en">Home</span><span class="l-zh">首页</span></a><a href="#works"><span class="l-en">Work</span><span class="l-zh">作品</span></a><a href="#about"><span class="l-en">About</span><span class="l-zh">关于</span></a><a href="card/"><span class="l-en">Card</span><span class="l-zh">名片</span></a></div>
+      <div><h4 class="mono"><span class="l-en">Elsewhere</span><span class="l-zh">其他</span></h4><a href="https://github.com/lotushansstudio-maker">GitHub</a><a href="https://www.linkedin.com/in/hanyu-ke-lotus">LinkedIn</a></div>
+      <div><h4 class="mono"><span class="l-en">Built with</span><span class="l-zh">构建</span></h4><a href="#intro">Canvas 2D</a><a href="#intro"><span class="l-en">Kalman + RTS</span><span class="l-zh">卡尔曼 + RTS</span></a></div>
+      <div><h4 class="mono"><span class="l-en">Status</span><span class="l-zh">状态</span></h4><p><span class="l-en">Open to quant roles in Singapore. LinkedIn is the fastest way to reach me.</span><span class="l-zh">正在寻找新加坡的量化岗位。LinkedIn 联系我最快。</span></p><a class="btn solid" href="https://www.linkedin.com/in/hanyu-ke-lotus" style="display:inline-flex;color:#fff"><span class="l-en">Say hello</span><span class="l-zh">打个招呼</span> ↗</a></div>
+    </div>
+    <div class="sign mono"><span>© 2026 Hanyu (Lotus) Ke</span><span><span class="l-en">Out of the noise, a signal.</span><span class="l-zh">出淤泥而不染。从噪声里，提取信号。</span></span></div>
+  </div>
+</footer>
 
 <script>
 (() => {
@@ -152,7 +321,10 @@ footer a:hover{color:var(--fg)}
   const intro = $('#intro'), stage = $('#stage');
   const fc = $('#field'), fx = fc.getContext('2d');
   const lc = $('#lines'), lx = lc.getContext('2d');
-  const label = $('.label');
+  const ro = { phase: $('#ro-phase'), n: $('#ro-n'), snr: $('#ro-snr'), shock: $('#ro-shock') };
+  let lastShock = null, roT = 0;
+  const top = $('#top');
+  addEventListener('scroll', () => top.classList.toggle('scrolled', scrollY > 8), { passive: true });
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -208,20 +380,21 @@ footer a:hover{color:var(--fg)}
   // ---------- layout ----------
   let W = 0, H = 0, dpr = 1, L = {};
   function layout() {
-    const wide = W > 820;
+    // the lotus lives in a panel now, so size it to the panel rather than the window
+    const wide = true;
     const cx = W / 2;
-    const R = wide ? Math.min(W * 0.17, H * 0.3) : Math.min(W * 0.4, H * 0.17);
-    const fy = wide ? H * 0.47 : H * 0.33;
+    const R = Math.min(W * 0.32, H * 0.33);
+    const fy = H * 0.47;
     const water = fy + R * 0.58;
-    const floor = wide ? H * 0.94 : H * 0.62;
-    const sway = wide ? Math.min(W * 0.07, 110) : W * 0.12;
+    const floor = H * 0.97;
+    const sway = Math.min(W * 0.09, 70);
     L = { wide, cx, R, fy, water, floor, sway, top: fy + R * 0.12 };
   }
 
   // ---------- particles ----------
   let P = [];
   function seed() {
-    const n = Math.round(clamp(W * H / 140, 2600, 9000));
+    const n = Math.round(clamp(W * H / 95, 2200, 7000));
     P = [];
     for (let i = 0; i < n; i++) {
       const role = rand() < 0.11 ? 0 : 1;
@@ -270,6 +443,7 @@ footer a:hover{color:var(--fg)}
     const R = 60 + sigma * 22;
     P.concat(A).forEach((p) => { const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy) || 1; if (d < R) { const f = (1 - d / R) * sigma * 2.2; p.vx += dx / d * f + gauss(); p.vy += dy / d * f + gauss(); if (p.st !== undefined) { p.st = 0; p.cool = 1.5; } } });
     shocks.push({ x, y, sigma, t: 0, R });
+    lastShock = sigma; readout(true);
   });
 
   function flow(x, y, t) {
@@ -447,11 +621,20 @@ footer a:hover{color:var(--fg)}
     lx.globalAlpha = 1;
   }
 
+  // live numbers under the panel, read straight from the animation state
+  function readout() {
+    const g = ease(seg(cur, 0.28, 0.5)), b = ease(seg(cur, 0.56, 0.8));
+    ro.phase.textContent = b > 0.6 ? 'BLOOM' : g > 0.15 ? 'FILTER' : 'NOISE';
+    ro.n.textContent = (P.length + A.length).toLocaleString('en-US');
+    const sig = 0.08 + 0.92 * (0.5 * g + 0.5 * b), noise = 1 - 0.85 * g;
+    ro.snr.textContent = (sig / noise).toFixed(2);
+    ro.shock.textContent = lastShock == null ? '—' : '+' + lastShock.toFixed(1) + 'σ';
+  }
   function loop(t) {
     const dt = Math.min(50, t - (lastT || t)); lastT = t;
     cur += (target_ - cur) * (1 - Math.exp(-dt / 160));
     target_ = clamp((t - t0) / 5200);
-    if (visible) step(dt);
+    if (visible) { step(dt); roT += dt; if (roT > 180) { roT = 0; readout(); } }
     requestAnimationFrame(loop);
   }
 
@@ -459,7 +642,9 @@ footer a:hover{color:var(--fg)}
   let t0 = 0;
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = stage.clientWidth; H = stage.clientHeight;
+    const nw = stage.clientWidth, nh = stage.clientHeight;
+    if (nw === W && Math.abs(nh - H) < 2) return; // ignore mobile toolbar jitter: reseeding would burst the flower
+    W = nw; H = nh;
     [fc, lc].forEach((c) => { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); });
     layout(); seed();
     fx.setTransform(dpr, 0, 0, dpr, 0, 0); fx.fillStyle = '#040509'; fx.fillRect(0, 0, W, H);
@@ -483,11 +668,11 @@ footer a:hover{color:var(--fg)}
     try { localStorage.setItem('lotus-lang', root.dataset.lang); } catch (err) {}
   }));
   resize();
-  label.classList.add('on');
   if (reduce) {
     // settle the particles into the bloom once, without animating
     target_ = cur = 1;
     for (let k = 0; k < 260; k++) step(16);
+    readout();
   } else requestAnimationFrame((t) => { t0 = t + 400; loop(t); });
 })();
 </script>
