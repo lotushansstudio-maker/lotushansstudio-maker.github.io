@@ -251,7 +251,7 @@ cv.addEventListener('pointerdown',e=>{au();lastIn=t;cv.setPointerCapture(e.point
   addTrail(e.clientX,e.clientY,.6);});
 cv.addEventListener('pointermove',e=>{
   if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(ptrs.size===2){const [p1,p2]=[...ptrs.values()],d=Math.hypot(p1.x-p2.x,p1.y-p2.y);if(pinchD>0)zoomT=clamp(zoomT*d/pinchD,.55,2.8);pinchD=d;return;}
+  if(ptrs.size===2){const [p1,p2]=[...ptrs.values()],d=Math.hypot(p1.x-p2.x,p1.y-p2.y);if(pinchD>0)zoomT=clamp(zoomT*Math.pow(d/pinchD,1.9),.4,4);pinchD=d;return;}
   const dx=lastPX==null?0:e.clientX-lastPX,dy=lastPY==null?0:e.clientY-lastPY,d=Math.hypot(dx,dy);
   light[0]=clamp((e.clientX/W-.5)*1.8,-1,1);light[1]=clamp(-(e.clientY/H-.5)*1.8,-1,1);lastIn=t;
   if(down&&!movedFar&&Math.hypot(e.clientX-downX,e.clientY-downY)>14)movedFar=true;
@@ -264,7 +264,7 @@ function up(e){ptrs.delete(e.pointerId);if(ptrs.size<2)pinchD=0;
   else if(down&&!movedFar&&performance.now()-downT<260){addWave(downX,downY,.85);if(AC)chime(2+((Math.random()*4)|0));}
   if(ptrs.size===0)down=false;}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);cv.addEventListener('pointerleave',()=>{lastPX=null;lastPY=null;});
-cv.addEventListener('wheel',e=>{e.preventDefault();au();touched();zoomT=clamp(zoomT*Math.exp(-e.deltaY*.0012),.55,2.8);},{passive:false});
+cv.addEventListener('wheel',e=>{e.preventDefault();au();touched();zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0028)),.4,4);},{passive:false});
 if(MOBILE&&!(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'))askTilt();
 // ---- 存成壁纸：在这一帧画完后立刻取图，加一行落款 ----
 let saveReq=false,sayT=0;
@@ -311,7 +311,7 @@ function frame(now){
   if(down&&!grav.on&&!movedFar&&ptrs.size<2&&performance.now()-downT>260){grav.on=true;grav.x=downX;grav.y=downY;}
   grav.g+=((grav.on?1:0)-grav.g)*Math.min(1,dt*(grav.on?5:10));
   for(let i=waves.length-1;i>=0;i--){waves[i].age+=dt;if(waves[i].age>1.8)waves.splice(i,1);}
-  zoom+=(zoomT-zoom)*Math.min(1,dt*6);
+  zoom+=(zoomT-zoom)*Math.min(1,dt*11);
   if(tilt.ok){tiltS.x+=(tilt.x-tiltS.x)*Math.min(1,dt*4);tiltS.y+=(tilt.y-tiltS.y)*Math.min(1,dt*4);}
   if(droneG&&AC){droneG.gain.setTargetAtTime(muted?0:grav.g*.07,AC.currentTime,.08);droneO.frequency.setTargetAtTime(62+grav.g*42,AC.currentTime,.1);}
   if(noiseG&&AC){noiseG.gain.setTargetAtTime(muted?0:scatterAmt*.05,AC.currentTime,.06);noiseF.frequency.setTargetAtTime(2400+scatterAmt*3200,AC.currentTime,.1);}
