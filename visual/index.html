@@ -104,20 +104,26 @@ const WORKS = [
     en: { title: 'String Mandala', say: 'Hundreds of glowing strings, pin i tied to pin i × k. Drag k and a cardioid turns into a nephroid, then into a flower. Tap to pluck.' },
     zh: { title: '弦线曼陀罗', say: '几百根发光的弦，第 i 颗钉连到第 i × k 颗。拖动 k，心形线变成肾形线，再变成花。点一下就能拨弦。' },
   },
+  {
+    slug: 'ascii-xmas-tree', date: '2026-11-23', no: '000',
+    url: 'https://lotushansstudio-maker.github.io/ascii-xmas-tree/', code: 'https://github.com/lotushansstudio-maker/ascii-xmas-tree', thumb: '_ext/ascii-xmas-tree.jpg',
+    en: { title: 'ASCII Xmas Tree', say: 'Thousands of ASCII characters grow into a Christmas tree, driven by one-hand gestures on your camera. Tap or press 0–5 if you would rather not use the camera.' },
+    zh: { title: '手势圣诞树', say: '几千个 ASCII 字符在摄像头前跟着你的单手手势长成一棵圣诞树。不想开摄像头也可以点屏幕或按 0–5。' },
+  },
 ];
 
 const grid = document.getElementById('grid');
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 grid.innerHTML = WORKS.map(w => `
   <article class="piece">
-    <a class="img" href="${w.slug}/"><img src="${w.slug}/thumb.jpg" alt="${esc(w.en.title)}" loading="lazy" width="800" height="800"></a>
+    <a class="img" href="${w.url||w.slug+'/'}"><img src="${w.thumb||w.slug+'/thumb.jpg'}" alt="${esc(w.en.title)}" loading="lazy" width="800" height="800"></a>
     <div class="body">
       <p class="fig mono"><span class="n">No.${w.no}</span><span>${w.date}</span></p>
       <h2><span class="l-en">${esc(w.en.title)}</span><span class="l-zh">${esc(w.zh.title)}</span></h2>
       <p><span class="l-en">${esc(w.en.say)}</span><span class="l-zh">${esc(w.zh.say)}</span></p>
       <div class="links">
-        <a href="${w.slug}/"><span class="l-en">Open</span><span class="l-zh">打开</span> ↗</a>
-        <a href="https://github.com/lotushansstudio-maker/lotushansstudio-maker.github.io/tree/main/visual/${w.slug}"><span class="l-en">Code</span><span class="l-zh">代码</span> →</a>
+        <a href="${w.url||w.slug+'/'}"><span class="l-en">Open</span><span class="l-zh">打开</span> ↗</a>
+        <a href="${w.code||'https://github.com/lotushansstudio-maker/lotushansstudio-maker.github.io/tree/main/visual/'+w.slug}"><span class="l-en">Code</span><span class="l-zh">代码</span> →</a>
       </div>
     </div>
   </article>`).join('') + `
