@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06040c">
+<meta property="og:title" content="String Mandala · 弦线曼陀罗">
+<meta property="og:description" content="Drag k and hundreds of glowing strings morph from a cardioid into a flower. 拖动 k，几百根发光的弦从心形变成花。">
+<meta property="og:image" content="https://lotushansstudio-maker.github.io/visual/string-mandala/og.jpg">
+<meta property="og:url" content="https://lotushansstudio-maker.github.io/visual/string-mandala/">
+<meta name="twitter:card" content="summary_large_image">
+<title>弦线曼陀罗 · String Mandala</title>
+<meta name="description" content="Drag k and watch hundreds of glowing strings morph from a cardioid into a flower. 拖动 k，几百根发光的弦从心形变成花。">
+<style>
+  :root{--fg:#efe9ff;--dim:rgba(239,233,255,.5);--line:rgba(239,233,255,.18);--btn:rgba(12,10,22,.45)}
+  body.light{--fg:#2a1d18;--dim:rgba(42,29,24,.55);--line:rgba(42,29,24,.2);--btn:rgba(246,240,228,.6)}
+  html,body{margin:0;height:100%;background:#06040c;overflow:hidden;touch-action:none;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--fg)}
+  body.light{background:#f1ebe0}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hud{position:fixed;pointer-events:none;transition:color .6s}
+  #title{top:max(18px,env(safe-area-inset-top));left:20px}
+  #title h1{margin:0;font-weight:300;font-size:20px;letter-spacing:.3em}
+  #title p{margin:5px 0 0;font-size:10px;letter-spacing:.26em;color:var(--dim)}
+  /* 中下方：大号 k 值和曲线名字 */
+  #kbox{left:0;right:0;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 108px);text-align:center}
+  #kval{font-size:40px;font-weight:200;letter-spacing:.06em;font-variant-numeric:tabular-nums;transition:transform .25s}
+  #kval.pop{transform:scale(1.18)}
+  #kname{font-size:12px;letter-spacing:.3em;color:var(--dim);margin-top:2px;min-height:16px}
+  /* 横屏：k 值放到左下角，不压住圆 */
+  body.wide #kbox{left:32px;right:auto;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 70px);text-align:left}
+  #bar{bottom:max(16px,env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:0 12px}
+  #bar button{pointer-events:auto;font:inherit;font-size:12px;letter-spacing:.14em;color:var(--fg);background:var(--btn);
+    border:1px solid var(--line);border-radius:999px;padding:9px 14px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer}
+  /* 右上角语言切换 */
+  #bLang{position:fixed;top:max(18px,env(safe-area-inset-top));right:16px;font:inherit;font-size:12px;letter-spacing:.12em;color:var(--fg);
+    background:var(--btn);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;z-index:5}
+  @media (max-width:420px){ #bar{gap:6px} #bar button{padding:8px 12px;letter-spacing:.08em} }
+  #bar button.on{border-color:var(--fg)}
+  #bar button:active{transform:scale(.96)}
+  #hint{top:calc(max(18px,env(safe-area-inset-top)) + 56px);left:20px;font-size:11px;color:var(--dim);letter-spacing:.12em;line-height:1.8;transition:opacity 1.5s}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="hudc"></canvas>
+
+<div id="title" class="hud"><h1 data-i="title">弦线曼陀罗</h1><p data-i="sub">STRING MANDALA · i → i × k</p></div>
+<button id="bLang">EN</button>
+<div id="hint" class="hud" data-i="hint">左右拖：改变倍数 k<br>点一下：拨动琴弦</div>
+<div id="kbox" class="hud"><div id="kval">k = 2</div><div id="kname">心形线</div></div>
+<div id="bar" class="hud">
+  <button id="bPal" data-i="pal">配色</button>
+  <button id="bPin">钉数 360</button>
+  <button id="bAuto" class="on" data-i="auto">自动漂移</button>
+  <button id="bSave" data-i="save">保存</button>
+</div>
+
+<script>
+/* =========================================================
+   弦线曼陀罗 String Mandala
+   圆上均匀钉 N 颗钉子，编号 0..N-1。
+   第 i 颗钉子用一根线连到第 (i × k mod N) 颗。
+   k = 2 时所有弦的包络是心形线，k = 3 是肾形线，
+   k 是整数 n 时会出现 n-1 个尖瓣；k 不是整数时图案在两者间流动。
+   ========================================================= */
+
+const clamp=(x,a,b)=>x<a?a:x>b?b:x;
+const TAU=Math.PI*2;
+function hex(h){const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255]}
+
+// ---------- 配色 ----------
+// stops：沿圆周循环的渐变；light：浅色底用“正片叠底”画线，像墨线
+const PALETTES=[
+  {name:'霓虹', bg:['#160f2a','#030208'], stops:['#ff7a59','#ffd36e','#5ef0d0','#5b8cff','#d36bff','#ff7a59'], pin:'#fff0e0'},
+  {name:'金箔', bg:['#1a1208','#040302'], stops:['#7a3b12','#e0a040','#fff1c4','#e0a040','#7a3b12'], pin:'#ffe9b8'},
+  {name:'青瓷', bg:['#0b1a1c','#020606'], stops:['#2f7f86','#9fe3d2','#f0f7e8','#7cc2d6','#2f7f86'], pin:'#e8fff7'},
+  {name:'朱砂', bg:['#f4eee3','#e2d6c3'], stops:['#a81e1e','#2a1d18','#c8502c','#2a1d18','#a81e1e'], pin:'#2a1d18', light:true},
+];
+PALETTES.forEach(p=>{
+  // 预计算 360 色循环查找表
+  const c=p.stops.map(hex); p.lut=[];
+  for(let i=0;i<360;i++){
+    const t=i/360*(c.length-1), k=Math.floor(t), f=t-k, a=c[k], b=c[Math.min(k+1,c.length-1)];
+    p.lut.push([a[0]+(b[0]-a[0])*f|0, a[1]+(b[1]-a[1])*f|0, a[2]+(b[2]-a[2])*f|0]);
+  }
+  p.bgc=hex(p.bg[1]);
+});
+let palIdx=0;
+
+// ---------- 状态 ----------
+const PIN_OPTIONS=[200,360,600,1000];
+let pinIdx=1, N=PIN_OPTIONS[pinIdx];
+let k=2, kv=0;              // 当前倍数和它的速度
+let auto=true, lastUser=-1e9;
+let flash=0;                // 吸附到整数时的闪光
+let snappedTo=2;
+const plucks=[];            // 拨弦事件 {ang, t}
+
+// ---------- 中英双语 ----------
+// 语言记在 localStorage 的 lotus-lang 里，和个人主页共用（同一个网站）
+const I18N={
+  zh:{title:'弦线曼陀罗', sub:'STRING MANDALA · i → i × k', hint:'左右拖：改变倍数 k<br>点一下：拨动琴弦', pal:'配色', pins:'钉数', auto:'自动漂移', save:'保存', other:'EN',
+      fan:'扇', still:'寂静（线都缩成点）', c2:'心形线', c3:'肾形线', mirror:'镜像对折', back:'回到起点',
+      epi:n=>`${n} 瓣外摆线`, sign:'弦线曼陀罗'},
+  en:{title:'String Mandala', sub:'弦线曼陀罗 · i → i × k', hint:'Drag sideways to change k<br>Tap to pluck the strings', pal:'Colour', pins:'Pins', auto:'Drift', save:'Save', other:'中文',
+      fan:'Fan', still:'Silence (every string collapses)', c2:'Cardioid', c3:'Nephroid', mirror:'Mirror fold', back:'Back to the start',
+      epi:n=>`${n}-cusp epicycloid`, sign:'String Mandala'},
+};
+let lang='zh';
+try{ const s=localStorage.getItem('lotus-lang'); lang = s ? s : (/^zh/i.test(navigator.language||'')?'zh':'en'); }catch(e){ lang=/^zh/i.test(navigator.language||'')?'zh':'en'; }
+const L=()=>I18N[lang];
+
+// 曲线名字
+function curveName(n){
+  const t=L();
+  if(n===0) return t.fan;
+  if(n===1 || n===N+1) return t.still;
+  if(n===2) return t.c2+' · Cardioid';
+  if(n===3) return t.c3+' · Nephroid';
+  if(n===Math.round(N/2)+1) return t.mirror;
+  return lang==='zh' ? `${t.epi(n-1)} · Epicycloid` : t.epi(n-1);
+}
+
+// ---------- 画布 ----------
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const hc=document.getElementById('hudc'), hx=hc.getContext('2d');
+const glow=document.createElement('canvas'), gx=glow.getContext('2d');   // 缩小再放大 = 柔光
+const lc=document.createElement('canvas'), lx=lc.getContext('2d');       // 单独的“弦”图层（透明底，带拖影）
+let W,H,DPR,CX,CY,RAD;
+function resize(){
+  DPR=Math.min(2,devicePixelRatio||1); W=innerWidth; H=innerHeight;
+  for(const c of [cv,hc,lc]){c.width=W*DPR|0;c.height=H*DPR|0;}
+  ctx.setTransform(DPR,0,0,DPR,0,0); hx.setTransform(DPR,0,0,DPR,0,0); lx.setTransform(DPR,0,0,DPR,0,0);
+  glow.width=Math.max(1,W/4|0); glow.height=Math.max(1,H/4|0);
+  // 竖屏：圆按宽度，略微上移给底部留空间
+  RAD=Math.min(W*0.44, H*0.36); CX=W/2; CY=Math.min(H*0.44, H/2 - 40);
+  if (W>H) { RAD=Math.min(H*0.38, W*0.34); CY=H*0.45; }
+  document.body.classList.toggle('wide', W>H*1.1);
+  paintBg(1);
+}
+addEventListener('resize',resize);
+
+function paintBg(a){
+  const P=PALETTES[palIdx];
+  const g=ctx.createRadialGradient(CX,CY,0,CX,CY,Math.hypot(W,H)*0.6);
+  g.addColorStop(0,P.bg[0]); g.addColorStop(1,P.bg[1]);
+  ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=a;
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+}
+
+const pinXY=i=>{const a=i/N*TAU-Math.PI/2;return[CX+RAD*Math.cos(a), CY+RAD*Math.sin(a)];};
+
+// ---------- 拨弦：每根线的振动位移 ----------
+function stringOffset(i, now){
+  if(!plucks.length) return 0;
+  const a=(i/N)*TAU;
+  let off=0;
+  for(const p of plucks){
+    let d=Math.abs(a-p.ang)%TAU; if(d>Math.PI) d=TAU-d;   // 到拨弦点的角距离
+    const t=(now-p.t)/1000 - d*0.35;                       // 波从拨弦点向两边传开
+    if(t<0) continue;
+    off += Math.exp(-t*1.6) * Math.exp(-d*d*1.2) * Math.sin(t*38 + i*0.15);
+  }
+  return off;
+}
+
+// ---------- 画一帧 ----------
+let last=performance.now(), frame=0;
+function draw(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now; frame++;
+  const P=PALETTES[palIdx];
+
+  // --- k 的运动：惯性 + 吸附整数 + 自动漂移 ---
+  if(!dragging){
+    k+=kv*dt; kv*=Math.pow(0.04,dt);              // 惯性慢慢停下
+    const n=Math.round(k), d=n-k;
+    if(Math.abs(kv)<0.6){                         // 足够慢 → 像磁铁一样被吸到最近的整数
+      k+=d*Math.min(1,dt*(Math.abs(d)<0.2?7:3));
+      if(Math.abs(d)<0.004 && snappedTo!==n){ snappedTo=n; flash=1; pop(); }
+    }
+    if(auto && now-lastUser>3000 && Math.abs(kv)<0.05){
+      // 自动：在一个整数上停 ~2.5 秒，然后缓缓滑向下一个
+      autoT+=dt;
+      if(autoT>2.6){ kv=3.3+Math.random()*0.4; autoT=0; if(k>40) kv=-60; }
+    }
+  }
+  k=clamp(k,0,N);
+  if(Math.abs(k-Math.round(k))>0.05) snappedTo=-1;
+  flash*=Math.pow(0.15,dt);
+
+  // --- 弦图层：每帧擦掉一部分，留下丝绸般的拖影 ---
+  lx.globalCompositeOperation='destination-out';
+  lx.fillStyle='rgba(0,0,0,0.5)'; lx.fillRect(0,0,W,H);
+
+  // --- 画弦 ---
+  { const ctx=lx;   // 这一段画在弦图层上
+  ctx.globalCompositeOperation = P.light ? 'source-over' : 'lighter';
+  const base = (P.light?0.16:0.13) * Math.sqrt(360/N);
+  const alpha = clamp(base*(1+flash*1.2), 0, 1);
+  ctx.lineWidth = (P.light?0.8:0.9) * (N>600?0.8:1);
+  const hueShift = now*0.004;   // 颜色沿圆周慢慢流动
+  // 按颜色分 36 组批量描边，快很多
+  const groups=36;
+  for(let gI=0; gI<groups; gI++){
+    const col=P.lut[((gI/groups*360+hueShift)|0)%360];
+    ctx.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${alpha})`;
+    ctx.beginPath();
+    const i0=Math.floor(gI*N/groups), i1=Math.floor((gI+1)*N/groups);
+    for(let i=i0;i<i1;i++){
+      const a=pinXY(i), b=pinXY(i*k);
+      const off=stringOffset(i,now);
+      if(off){
+        // 振动：弦中点沿法线方向偏移，画成二次曲线
+        const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2, dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy)||1;
+        const amp=off*L*0.1;
+        ctx.moveTo(a[0],a[1]); ctx.quadraticCurveTo(mx-dy/L*amp, my+dx/L*amp, b[0],b[1]);
+      } else { ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+    }
+    ctx.stroke();
+  }
+  }
+
+  // --- 合成：背景 + 弦 + 柔光 ---
+  paintBg(1);
+  ctx.globalCompositeOperation = P.light ? 'multiply' : 'lighter';
+  ctx.drawImage(lc,0,0,W,H);
+  if(!P.light){
+    gx.clearRect(0,0,glow.width,glow.height);
+    gx.drawImage(lc,0,0,glow.width,glow.height);
+    ctx.globalAlpha=0.7+flash*0.6; ctx.drawImage(glow,0,0,W,H);
+    ctx.globalAlpha=1;
+  }
+
+  // --- 钉子 ---
+  ctx.globalCompositeOperation='source-over';
+  const pc=hex(P.pin), step=N>400?2:1;
+  ctx.fillStyle=`rgba(${pc[0]},${pc[1]},${pc[2]},${P.light?0.6:0.75})`;
+  ctx.beginPath();
+  for(let i=0;i<N;i+=step){const [x,y]=pinXY(i); ctx.moveTo(x+1.1,y); ctx.arc(x,y,1.1,0,TAU);}
+  ctx.fill();
+
+
+  drawHud();
+  // 清理过期的拨弦
+  while(plucks.length && now-plucks[0].t>4000) plucks.shift();
+  requestAnimationFrame(draw);
+}
+let autoT=0;
+
+// ---------- HUD：底部刻度尺 + k 值 ----------
+const kvalEl=document.getElementById('kval'), knameEl=document.getElementById('kname');
+let shownK='';
+function drawHud(){
+  hx.clearRect(0,0,W,H);
+  const P=PALETTES[palIdx], fg=P.light?'42,29,24':'239,233,255';
+  // 刻度尺：以当前 k 为中心，左右各显示 6 个单位
+  const y=H-Math.max(16,0)-72-(parseFloat(getComputedStyle(document.body).getPropertyValue('--sab'))||0);
+  const span=Math.min(W*0.8,520), unit=span/12, x0=W/2;
+  for(let n=Math.floor(k-6);n<=Math.ceil(k+6);n++){
+    for(let s=0;s<5;s++){
+      const v=n+s/5, x=x0+(v-k)*unit; if(Math.abs(x-x0)>span/2) continue;
+      const fade=1-Math.abs(x-x0)/(span/2);
+      hx.strokeStyle=`rgba(${fg},${0.6*fade})`; hx.lineWidth=1;
+      hx.beginPath(); hx.moveTo(x,y); hx.lineTo(x,y-(s===0?12:5)); hx.stroke();
+      if(s===0 && n>=0){ hx.fillStyle=`rgba(${fg},${0.7*fade})`; hx.font='10px sans-serif'; hx.textAlign='center'; hx.fillText(n,x,y+14); }
+    }
+  }
+  hx.strokeStyle=`rgba(${fg},.9)`; hx.lineWidth=1.5;
+  hx.beginPath(); hx.moveTo(x0,y+2); hx.lineTo(x0,y-18); hx.stroke();
+
+  const n=Math.round(k), isInt=Math.abs(k-n)<0.004;
+  const txt=isInt?`k = ${n}`:`k = ${k.toFixed(2)}`;
+  if(txt!==shownK){ kvalEl.textContent=txt; shownK=txt; knameEl.textContent=isInt?curveName(n):''; }
+}
+function pop(){ kvalEl.classList.add('pop'); setTimeout(()=>kvalEl.classList.remove('pop'),250); }
+
+// ---------- 交互 ----------
+let dragging=false, pid=null, downX=0, downY=0, downT=0, lastX=0, lastMT=0;
+cv.style.pointerEvents='none'; // 事件统一由上层 hud 画布接收
+hc.addEventListener('pointerdown',e=>{
+  pid=e.pointerId; downX=lastX=e.clientX; downY=e.clientY; downT=lastMT=performance.now(); dragging=false; kv=0;
+  hc.setPointerCapture(pid); hideHint();
+});
+hc.addEventListener('pointermove',e=>{
+  if(e.pointerId!==pid) return;
+  const now=performance.now();
+  if(!dragging && Math.hypot(e.clientX-downX,e.clientY-downY)>8) dragging=true;
+  if(dragging){
+    // 拖一整个屏幕宽 ≈ 改变 8 个单位；靠近整数时有一点“阻力”
+    const dk=(e.clientX-lastX)/Math.min(W,700)*8;
+    k=clamp(k+dk,0,N);
+    const dtm=Math.max(1,now-lastMT); kv=kv*0.6+(dk/(dtm/1000))*0.4;
+    lastX=e.clientX; lastMT=now; lastUser=now;
+  }
+});
+const up=e=>{
+  if(e.pointerId!==pid) return;
+  const now=performance.now();
+  if(!dragging && now-downT<450){
+    // 点击 = 在离手指最近的圆周位置拨弦
+    plucks.push({ang:((Math.atan2(e.clientY-CY,e.clientX-CX)+Math.PI/2)%TAU+TAU)%TAU, t:now});
+    flash=Math.max(flash,0.5);
+  }
+  if(now-lastMT>80) kv=0;     // 停住再松手就不甩
+  dragging=false; pid=null; lastUser=now;
+};
+hc.addEventListener('pointerup',up); hc.addEventListener('pointercancel',up);
+addEventListener('wheel',e=>{k=clamp(k+e.deltaY*0.004,0,N);kv=0;lastUser=performance.now();hideHint();},{passive:true});
+addEventListener('keydown',e=>{
+  const now=performance.now(); lastUser=now;
+  if(e.code==='ArrowRight'){k=Math.floor(k+1e-6)+1;kv=0;}
+  else if(e.code==='ArrowLeft'){k=Math.max(0,Math.ceil(k-1e-6)-1);kv=0;}
+  else if(e.code==='ArrowUp'){kv+=0.8;}
+  else if(e.code==='ArrowDown'){kv-=0.8;}
+  else if(e.code==='Space'){plucks.push({ang:Math.random()*TAU,t:now});flash=Math.max(flash,.5);e.preventDefault();}
+  else if(/^Digit[0-9]$/.test(e.code)){k=+e.code.slice(5);kv=0;}
+  else if(e.code==='KeyC') nextPal();
+  else if(e.code==='KeyP') nextPin();
+  else if(e.code==='KeyA') toggleAuto();
+  else if(e.code==='KeyS') save();
+  else if(e.code==='KeyL') document.getElementById('bLang').click();
+  hideHint();
+});
+
+// ---------- 按钮 ----------
+const bPin=document.getElementById('bPin'), bAuto=document.getElementById('bAuto');
+function nextPal(){ palIdx=(palIdx+1)%PALETTES.length; document.body.classList.toggle('light',!!PALETTES[palIdx].light); lx.clearRect(0,0,W,H); }
+function nextPin(){ pinIdx=(pinIdx+1)%PIN_OPTIONS.length; N=PIN_OPTIONS[pinIdx]; bPin.textContent=L().pins+' '+N; lx.clearRect(0,0,W,H); }
+function toggleAuto(){ auto=!auto; bAuto.classList.toggle('on',auto); }
+function save(){
+  // 导出当前画面（含拖影和柔光），并在右下角落款
+  const o=document.createElement('canvas'); o.width=cv.width; o.height=cv.height; const x=o.getContext('2d');
+  x.drawImage(cv,0,0); x.scale(DPR,DPR);
+  const P=PALETTES[palIdx]; x.fillStyle=P.light?'rgba(42,29,24,.7)':'rgba(239,233,255,.7)';
+  x.font='12px sans-serif'; x.textAlign='right';
+  x.fillText(`${L().sign} · k = ${k.toFixed(2)} · N = ${N}`, W-20, H-20);
+  const a=document.createElement('a'); a.download=`string-mandala-k${k.toFixed(2)}.png`; a.href=o.toDataURL('image/png'); a.click();
+}
+document.getElementById('bPal').onclick=nextPal;
+// 切换语言：刷新所有文字
+function applyLang(){
+  document.documentElement.lang = lang==='zh'?'zh-CN':'en';
+  document.querySelectorAll('[data-i]').forEach(el=>{ el.innerHTML=L()[el.dataset.i]; });
+  document.getElementById('bLang').textContent=L().other;
+  bPin.textContent=L().pins+' '+N;
+  shownK='';   // 让曲线名字也重新显示
+}
+document.getElementById('bLang').onclick=()=>{ lang = lang==='zh'?'en':'zh'; try{localStorage.setItem('lotus-lang',lang)}catch(e){} applyLang(); };
+bPin.onclick=nextPin; bAuto.onclick=toggleAuto;
+document.getElementById('bSave').onclick=save;
+// 按钮不抢键盘焦点
+document.querySelectorAll('#bar button, #bLang').forEach(b=>{b.tabIndex=-1;b.addEventListener('pointerdown',e=>e.stopPropagation());});
+const hint=document.getElementById('hint'); let hintGone=false;
+function hideHint(){ if(!hintGone){hintGone=true;hint.style.opacity=0;} }
+setTimeout(hideHint,10000);
+
+// ?k=3&pal=1&n=600 可以直接打开某个状态
+const qs=new URLSearchParams(location.search);
+if(qs.has('k')){k=+qs.get('k');snappedTo=Math.round(k);}
+if(qs.has('n')){const i=PIN_OPTIONS.indexOf(+qs.get('n')); if(i>=0){pinIdx=i;N=PIN_OPTIONS[i];}}
+if(qs.has('lang')) lang = qs.get('lang')==='en'?'en':'zh';
+applyLang();
+resize();
+if(qs.has('pal')){palIdx=(+qs.get('pal'))%PALETTES.length-1; if(palIdx<0)palIdx=PALETTES.length-1; nextPal();}
+if(qs.has('still')) auto=false, bAuto.classList.remove('on');
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
