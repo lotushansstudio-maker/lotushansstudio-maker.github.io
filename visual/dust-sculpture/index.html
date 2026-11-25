@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>本来无一物，何处惹尘埃 · Dust Sculpture</title>
+<meta name="description" content="十几万个光点组成一座会变形的雕塑，手指划过，光点散成光尘，松手后慢慢回聚。 A hundred thousand points of light form a sculpture that morphs; swipe to scatter it into dust and watch it re-gather.">
+<meta property="og:title" content="本来无一物，何处惹尘埃 · Dust Sculpture">
+<meta property="og:description" content="Swipe to blow a glowing point-cloud sculpture into dust; hold for a vortex, release for a shockwave. 划过吹散光尘，按住聚成漩涡，松手炸开。">
+<meta property="og:image" content="https://lotushansstudio-maker.github.io/visual/dust-sculpture/og.jpg">
+<meta property="og:url" content="https://lotushansstudio-maker.github.io/visual/dust-sculpture/">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{--f:"Noto Sans CJK SC","Source Han Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei","WenQuanYi Zen Hei",system-ui,sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#02030a;color:#e8eeff;font-family:var(--f);overflow:hidden;overscroll-behavior:none;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;z-index:3;pointer-events:none}
+#brand{left:max(16px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top))}
+#brand b{display:block;font-size:17px;line-height:1.35;letter-spacing:.22em;font-weight:600;text-shadow:0 0 18px rgba(120,160,255,.55)}
+#brand i{display:block;font-style:normal;font-size:10px;letter-spacing:.4em;opacity:.45;margin-top:2px}
+#tools{right:max(14px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));display:flex;gap:8px;pointer-events:auto}
+.btn{pointer-events:auto;border:1px solid rgba(190,210,255,.22);background:rgba(10,12,30,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#e6ecff;border-radius:999px;font:13px var(--f);padding:7px 13px;cursor:pointer;letter-spacing:.06em}
+.btn:active{background:rgba(70,90,160,.5)}
+#name{left:0;right:0;bottom:calc(max(22px,env(safe-area-inset-bottom)) + 30px);text-align:center;transition:opacity 1s;opacity:0}
+#name.on{opacity:1}
+#name b{display:block;font-size:17px;letter-spacing:.38em;font-weight:500;color:#eef2ff;text-shadow:0 0 14px rgba(120,150,255,.6)}
+#name em{display:block;font-style:normal;font-size:11px;letter-spacing:.08em;opacity:.55;margin-top:5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+#hint{left:0;right:0;bottom:max(22px,env(safe-area-inset-bottom));text-align:center;font-size:13px;letter-spacing:.2em;opacity:0;transition:opacity 1.4s;padding:0 20px;color:#cfd8ff;text-shadow:0 0 12px #000}
+#hint.on{opacity:.7}
+#flash{position:fixed;inset:0;z-index:6;background:#fff;opacity:0;pointer-events:none;transition:opacity .7s ease-out}
+@media(max-width:520px){#brand b{font-size:14px;letter-spacing:.14em}#name{bottom:calc(max(22px,env(safe-area-inset-bottom)) + 74px)}#name em{font-size:10px;padding:0 14px}.btn{padding:6px 11px;font-size:12px}#tools{gap:6px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="brand" class="hud"><b id="tT"></b><i>DUST SCULPTURE</i></div>
+<div id="flash"></div>
+<div id="tools" class="hud"><button class="btn" id="bSave"></button><button class="btn" id="bNext"></button><button class="btn" id="bLang">EN</button><button class="btn" id="bSnd">♪</button></div>
+<div id="name" class="hud"><b id="nB"></b><em id="nE"></em></div>
+<div id="hint" class="hud"></div>
+<script>
+(()=>{
+'use strict';
+// ================= 基础 =================
+const Q=new URLSearchParams(location.search),$=s=>document.querySelector(s);
+const cv=$('#c');
+const gl=cv.getContext('webgl2',{antialias:false,alpha:false,powerPreference:'high-performance'});
+if(!gl){document.body.insertAdjacentHTML('beforeend','<p style="position:fixed;inset:40% 10% auto;text-align:center">需要支持 WebGL2 的浏览器 · WebGL2 is required</p>');return;}
+const STILL=Q.has('still');
+const clamp=(v,a,b)=>v<a?a:v>b?b:v,sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+const TAU=Math.PI*2;
+// ================= 双语 =================
+const I18={
+ zh:{title:'本来无一物，<br>何处惹尘埃',hint:'划过吹散光尘 · 按住聚成漩涡，松手炸开 · 点一下起涟漪 · 双指缩放 · 双击换形态',next:'换形态',save:'存图',saved:'已保存成壁纸',
+  shapes:[['三叶结','x = sin u + 2 sin 2u · y = cos u − 2 cos 2u · z = −sin 3u'],['涟漪球','r = 1 + 0.17 · sin 5φ · sin 4θ'],['莫比乌斯带','x = (1 + s·cos(u/2)) · cos u · 扭转半圈'],['旋臂星云','θ = θ₀ + 3.4·r + t/(1+2r) · 内快外慢'],['双螺旋','x = r·cos t · z = r·sin t · y = 0.37·t · 两条互补链 + 碱基对'],['波纹环面','x = (R + r·cos v)·cos u · r = 0.30 + 0.1·sin 7u'],['利萨如结','x = sin(3u+½) · y = sin 2u · z = sin(5u+1)'],['鹦鹉螺','r = a·e^{0.22θ} · 对数螺线，每转放大 4 倍'],['喷泉','y = 1.9s − 1.45s² · ρ = 1.25s · 14 道抛物线']]},
+ en:{title:'Dust Sculpture',hint:'Swipe to scatter dust · hold to pull a vortex, release to burst · tap for ripples · pinch to zoom · double-tap to morph',next:'Morph',save:'Save',saved:'Saved as wallpaper',
+  shapes:[['Trefoil Knot','x = sin u + 2 sin 2u · y = cos u − 2 cos 2u · z = −sin 3u'],['Rippled Sphere','r = 1 + 0.17 · sin 5φ · sin 4θ'],['Möbius Ribbon','x = (1 + s·cos(u/2)) · cos u · a half twist'],['Spiral Galaxy','θ = θ₀ + 3.4·r + t/(1+2r) · inner spins faster'],['Double Helix','x = r cos t · z = r sin t · y = 0.37 t · two strands + base pairs'],['Ripple Torus','x = (R + r cos v) cos u · r = 0.30 + 0.1 sin 7u'],['Lissajous Knot','x = sin(3u+½) · y = sin 2u · z = sin(5u+1)'],['Nautilus','r = a·e^{0.22θ} · a logarithmic spiral, 4× wider each turn'],['Fountain','y = 1.9s − 1.45s² · ρ = 1.25s · 14 parabolic jets']]}
+};
+let lang=Q.get('lang')||localStorage.getItem('lotus-lang')||((navigator.language||'').toLowerCase().startsWith('zh')?'zh':'en');
+if(lang!=='zh'&&lang!=='en')lang='zh';
+const tr=k=>I18[lang][k];
+// ================= 着色器 =================
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s;}
+function prog(vs,fs){const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))console.error(gl.getProgramInfoLog(p));return p;}
+const V3='#version 300 es\nprecision highp float;\n';
+// 背景：一点点中心微光
+const pBg=prog(V3+'void main(){vec2 c=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(c*2.-1.,0.,1.);}',
+ V3+'uniform vec2 uRes;uniform vec3 uTint;out vec4 o;void main(){vec2 p=(gl_FragCoord.xy-.5*uRes)/min(uRes.x,uRes.y);float d=length(p);vec3 c=mix(vec3(.018,.024,.06),vec3(.004,.006,.02),smoothstep(0.,.95,d));c+=uTint*.05*exp(-d*d*5.);o=vec4(c,1.);}');
+const VS=V3+`
+layout(location=0) in vec4 aUV;      // u, v, 随机1, 随机2
+layout(location=1) in vec2 aR;       // 随机3, 种类(0 形体 / 1 背景尘)
+uniform mat3 uRot;
+uniform float uT,uMorph,uAspect,uFit,uDpr,uSize,uFocus,uFocusK,uBright;
+uniform int uA,uB;
+uniform vec2 uRes;
+uniform vec3 uLight;
+uniform vec3 uTrail[10];
+uniform float uRad,uGR;
+uniform vec3 uGrav;uniform vec4 uWave[3];uniform vec2 uWS;
+uniform vec3 uPal[3];                // 暗面 亮面 边缘
+out vec3 vCol;out float vAl;
+const float TAU=6.2831853;const float D=4.2;
+float h21(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+vec3 curveL(float u){return vec3(sin(3.*u+.5),sin(2.*u),sin(5.*u+1.))*.78;}
+vec3 curveK(float u){return vec3(sin(u)+2.*sin(2.*u),cos(u)-2.*cos(2.*u),-sin(3.*u))*.36;}
+// 四种形体：参数 q∈[0,1]²，返回位置，n 为法线
+vec3 shape(int k,vec2 q,float t,out vec3 n){
+  float u=q.x*TAU,v=q.y*TAU;
+  if(k==0){float e=.012;vec3 c0=curveK(u),c1=curveK(u+e),c2=curveK(u-e);
+    vec3 T=normalize(c1-c2),N=normalize(c1+c2-2.*c0),B=cross(T,N);
+    float r=.17+.04*sin(3.*u+2.*v+t*.6);n=N*cos(v)+B*sin(v);return c0+n*r;}
+  if(k==1){float ph=acos(1.-2.*q.y);float r=1.+.17*sin(5.*ph+t*.5)*sin(4.*u+t*.3);
+    n=vec3(sin(ph)*cos(u),cos(ph),sin(ph)*sin(u));return n*r*.95;}
+  if(k==2){float s=(q.y-.5)*.62,hh=u*.5;vec3 w=vec3(cos(hh)*cos(u),sin(hh),cos(hh)*sin(u));
+    vec3 c=vec3((1.+s*cos(hh))*cos(u),s*sin(hh),(1.+s*cos(hh))*sin(u));
+    n=normalize(cross(vec3(-sin(u),0.,cos(u)),w));vec3 pp=(c+n*.025*sin(u*9.+t))*.72;
+    float cx=cos(.55),sx=sin(.55);mat3 tl=mat3(1.,0.,0., 0.,cx,sx, 0.,-sx,cx);n=tl*n;return tl*pp;}
+  if(k==4){ // 双螺旋
+    float a=q.x*3.*TAU,yy=(q.x-.5)*2.3;
+    if(q.y<.72){float aa=a+(q.y<.36?0.:3.14159),vv=q.y*TAU*4.;vec3 c=vec3(cos(aa)*.5,yy,sin(aa)*.5),rad=vec3(cos(aa),0.,sin(aa));n=normalize(rad*cos(vv)+vec3(0.,1.,0.)*sin(vv));return (c+n*.075)*.85;}
+    float idx=floor(q.x*26.)/26.,a2=idx*3.*TAU,y2=(idx-.5)*2.3,sr=(q.y-.72)/.28;
+    vec3 A=vec3(cos(a2)*.5,y2,sin(a2)*.5),B=vec3(cos(a2+3.14159)*.5,y2,sin(a2+3.14159)*.5);
+    n=normalize(vec3(cos(a2),.2,sin(a2)));return (mix(A,B,sr)+(vec3(h21(q),h21(q.yx),h21(q+1.))-.5)*.03)*.85;}
+  if(k==5){ // 波纹环面
+    float r=.22+.07*sin(7.*u),vv=v+u*2.;n=vec3(cos(vv)*cos(u),sin(vv),cos(vv)*sin(u));
+    return vec3((.88+r*cos(vv))*cos(u),r*sin(vv),(.88+r*cos(vv))*sin(u));}
+  if(k==6){ // 利萨如结
+    float e=.012;vec3 c0=curveL(u),c1=curveL(u+e),c2=curveL(u-e);
+    vec3 T=normalize(c1-c2),N=normalize(cross(T,vec3(.3,1.,.2))),B=cross(T,N);
+    float r=.1+.025*sin(4.*u+v);n=N*cos(v)+B*sin(v);return c0+n*r;}
+  if(k==7){ // 鹦鹉螺：对数螺线管
+    float th=q.x*2.*TAU+.5,g=.22,e=.01;
+    vec3 c0=vec3(cos(th),0.,sin(th))*exp(g*th),c1=vec3(cos(th+e),0.,sin(th+e))*exp(g*(th+e));
+    vec3 T=normalize(c1-c0),N=normalize(cross(T,vec3(0.,1.,0.))),B=cross(T,N);
+    float rt=.3*exp(g*th),sc=1.45/exp(g*(2.*TAU+.5));
+    n=N*cos(v)+B*sin(v)*.8;vec3 pp=(c0+n*rt)*sc;float cx=cos(.85),sx=sin(.85);mat3 tl=mat3(1.,0.,0., 0.,cx,sx, 0.,-sx,cx);n=tl*n;return tl*pp;}
+  if(k==8){ // 喷泉：14 道抛物线水柱，水流沿弧线流动
+    float st=floor(q.x*14.),ph=(st+(fract(q.x*14.)-.5)*.42)*TAU/14.,sv=fract(q.y+t*.1);
+    float rho=1.25*sv*(1.+.12*sin(12.*ph+t*.4)),yy=-.4+1.9*sv-1.45*sv*sv;
+    n=normalize(vec3(cos(ph)*(.5+sv),1.-sv,sin(ph)*(.5+sv)));return vec3(cos(ph)*rho,yy,sin(ph)*rho)*.9;}
+  if(q.y<.16){ // 核球
+    vec3 d=normalize(vec3(h21(q*3.1)-.5,h21(q*5.7)-.5,h21(q*7.3)-.5)+1e-3);float cr=.3*pow(h21(q.yx*vec2(4.3,9.1)),.7);
+    n=d;return d*cr*vec3(1.,.6,1.);}
+  float qy=(q.y-.16)/.84,rr=pow(qy,.8)*1.5,arm=floor(q.x*3.)*2.0944,fr=fract(q.x*3.);
+  float a=arm+rr*3.2+t*.35/(1.+rr*2.)+(fr-.5)*(1.4*(.3+.9*(1.-rr/1.5)));
+  float hy=(h21(q*vec2(91.,57.))-.5)*.2*(1.-rr*.5);
+  n=normalize(vec3(.4*cos(a)*rr,1.,.4*sin(a)*rr));return vec3(cos(a)*rr,hy,sin(a)*rr);
+}
+void main(){
+  vec3 rv=vec3(aUV.z,aUV.w,aR.x)-.5;
+  vec3 p,n;float size,alpha;float KB[9]=float[9](1.,1.,.45,.28,1.,1.,.9,.42,.9);
+  if(aR.y>.5){ // 背景尘
+    vec3 d=normalize(rv+vec3(.001));p=d*(2.4+aUV.x*3.6);
+    p+=vec3(sin(uT*.07+aUV.y*50.),cos(uT*.05+aUV.x*40.),sin(uT*.06+aUV.z*30.))*.25;p=uRot*p*.6;
+    n=vec3(0.,0.,1.);size=1.1;alpha=.16*(.6+.4*sin(uT*1.3+aUV.y*90.));
+    vCol=vec3(.6,.7,1.);
+  }else{
+    vec3 nA,nB;vec3 pA=shape(uA,aUV.xy,uT,nA),pB=pA;nB=nA;
+    float e=smoothstep(0.,1.,uMorph);
+    if(uB!=uA){pB=shape(uB,aUV.xy,uT,nB);}
+    p=mix(pA,pB,e);n=normalize(mix(nA,nB,e)+1e-4);
+    p+=rv*1.2*sin(e*3.14159)*sin(e*3.14159);          // 变形中点云飘散
+    p*=1.+.025*sin(uT*.8+aUV.x*TAU);
+    p=uRot*p;n=uRot*n;
+    // 手指拨动：投影到屏幕，靠近指尖的点被推成光尘
+    float dep0=D-p.z;vec2 nd=vec2(2.8*p.x/dep0*uFit/uAspect,2.8*p.y/dep0*uFit);
+    vec2 sp=vec2((nd.x*.5+.5)*uRes.x,(1.-(nd.y*.5+.5))*uRes.y);
+    vec3 push=vec3(0.);float fs=0.,boost=1.;
+    for(int i=0;i<10;i++){vec3 tr=uTrail[i];if(tr.z<.01)continue;vec2 dd=sp-tr.xy;float f=exp(-dot(dd,dd)/(2.*uRad*uRad))*tr.z;
+      vec2 dn=normalize(dd+1e-3);fs+=f;
+      push+=f*(vec3(dn.x,-dn.y,0.)*.22+rv*.5+vec3(-dn.y,-dn.x,0.)*.2*sin(uT*2.+aUV.x*20.));}
+    push*=1./max(1.,fs);
+    // 点按/松手的冲击波：一圈向外扩散的涟漪，波峰处点云被推开、变亮
+    for(int i=0;i<3;i++){vec4 w=uWave[i];if(w.z<0.)continue;vec2 dd=sp-w.xy;float dl=length(dd);float dr=(dl-w.z*uWS.x)/uWS.y;float f=exp(-dr*dr)*w.w*(1.-w.z/1.8);
+      vec2 dn=dd/(dl+1e-3);push+=vec3(dn.x,-dn.y,0.)*.3*f+vec3(0.,0.,.4*f)+rv*.15*f;boost+=f*1.6;}
+    p+=push;
+    // 按住：引力漩涡，点云绕着指尖转、向里收
+    if(uGrav.z>.01){vec2 dd=sp-uGrav.xy;float f=exp(-dot(dd,dd)/(2.*uGR*uGR))*uGrav.z;
+      vec2 gv=vec2((uGrav.x/uRes.x*2.-1.)*(D/2.8)*uAspect/uFit,-(uGrav.y/uRes.y*2.-1.)*(D/2.8)/uFit);
+      vec2 rel=p.xy-gv;float ang=f*1.8;float cs=cos(ang),sn=sin(ang);
+      p.xy=gv+mat2(cs,-sn,sn,cs)*rel*(1.-.6*f);p.z*=1.-.5*f;boost+=f*1.4;}
+    float dep=D-p.z;float coc=abs(dep-uFocus);
+    float K=1.+uFocusK*coc;
+    size=uSize*K;alpha=uBright/(K*K);
+    vec3 nn=n*(n.z<0.?-1.:1.);
+    float lit=max(dot(normalize(nn),normalize(uLight)),0.),rim=pow(1.-abs(n.z),3.);
+    vCol=mix(uPal[0],uPal[1],lit)*(.35+.85*lit)+uPal[2]*rim*.75;
+    alpha*=(.5+.7*lit+.55*rim)*mix(KB[uA],KB[uB],e)*boost;
+    alpha*=1.+length(push)*.35;
+  }
+  float depth=D-p.z;
+  gl_Position=vec4(2.8*p.x/depth*uFit/uAspect,2.8*p.y/depth*uFit,(depth-D)*.05,depth/D);
+  gl_PointSize=max(1.,size*uDpr*D/depth);
+  vAl=alpha;
+}`;
+const FS=V3+`in vec3 vCol;in float vAl;out vec4 o;
+void main(){vec2 c=gl_PointCoord*2.-1.;float r2=dot(c,c);if(r2>1.)discard;float a=exp(-r2*3.4)*vAl;o=vec4(vCol*a,a);}`;
+const pPt=prog(VS,FS);
+const U={};'uRot uT uMorph uAspect uFit uDpr uSize uFocus uFocusK uBright uA uB uRes uLight uTrail uRad uPal uGrav uGR uWave uWS'.split(' ').forEach(n=>U[n]=gl.getUniformLocation(pPt,n));
+const uBg={uRes:gl.getUniformLocation(pBg,'uRes'),uTint:gl.getUniformLocation(pBg,'uTint')};
+// ================= 点数据 =================
+const MOBILE=Math.min(innerWidth,innerHeight)<600||/Mobi|Android/i.test(navigator.userAgent);
+const NB=+Q.get('n')||(MOBILE?70000:130000),ND=700;
+const arr=new Float32Array((NB+ND)*6);
+(function(){let s=20251125;const r=()=>(s=(s*1664525+1013904223)>>>0)/4294967296;
+  for(let i=0;i<NB+ND;i++){const o=i*6;arr[o]=r();arr[o+1]=r();arr[o+2]=r();arr[o+3]=r();arr[o+4]=r();arr[o+5]=i<ND?1:0;}})();
+const vao=gl.createVertexArray(),buf=gl.createBuffer();
+gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,arr,gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,4,gl.FLOAT,false,24,0);
+gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,2,gl.FLOAT,false,24,16);
+const vaoE=gl.createVertexArray();
+// 每个形态的配色：暗面 / 亮面 / 边缘光
+const PAL=[
+ [[.12,.32,1.],[1.,.6,.32],[.25,1.,.9]],
+ [[.34,.2,1.],[1.,.45,.78],[.5,.9,1.]],
+ [[.08,.5,.85],[1.,.84,.4],[.9,.4,1.]],
+ [[.3,.3,1.],[1.,.74,.5],[.55,.8,1.]],
+ [[.1,.4,1.],[.4,1.,.7],[1.,.4,.8]],
+ [[.5,.15,.9],[1.,.55,.25],[.3,.9,1.]],
+ [[.15,.5,.9],[1.,.3,.5],[1.,.9,.4]],
+ [[.7,.35,.15],[1.,.85,.5],[.5,.7,1.]],
+ [[.2,.5,1.],[.8,.95,1.],[1.,.7,.4]]];
+const NS=PAL.length;
+// ================= 状态 =================
+let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),t=0;
+let yaw=+Q.get('yaw')||0.4,pitch=.35,yawV=0.14,pitchV=0;
+let cur=+Q.get('shape')||0,nxt=cur,morph=0,morphing=false,idleT=0;
+let nBody=NB;
+const trail=[];for(let i=0;i<10;i++)trail.push({x:0,y:0,s:0});let trI=0;const trailU=new Float32Array(30);
+let lastPX=null,lastPY=null,down=false,lastTap=0,tapX=0,tapY=0,lastIn=0,interacted=false;
+let light=[.5,.55,.7],scatterAmt=0;
+// ================= 声音（很轻的沙沙声 + 换形态时一声泛音） =================
+let droneO=null,droneG=null;
+let AC=null,muted=localStorage.getItem('dust-mute')==='1',noiseG=null,noiseF=null;
+function au(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();
+  const n=AC.sampleRate*2,b=AC.createBuffer(1,n,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+  const src=AC.createBufferSource();src.buffer=b;src.loop=true;noiseF=AC.createBiquadFilter();noiseF.type='bandpass';noiseF.frequency.value=3200;noiseF.Q.value=.8;
+  noiseG=AC.createGain();noiseG.gain.value=0;src.connect(noiseF);noiseF.connect(noiseG);noiseG.connect(AC.destination);src.start();
+  droneO=AC.createOscillator();droneO.type='sawtooth';droneO.frequency.value=62;const df=AC.createBiquadFilter();df.type='lowpass';df.frequency.value=240;droneG=AC.createGain();droneG.gain.value=0;droneO.connect(df);df.connect(droneG);droneG.connect(AC.destination);droneO.start();}catch(e){return null}}
+  if(AC.state==='suspended')AC.resume();return AC;}
+function chime(i){const a=AC;if(!a||muted)return;const P=[0,2,4,7,9],f=261.63*Math.pow(2,(P[i%5]+12*Math.floor(i/5))/12);
+  [1,2,3].forEach((m,k)=>{const o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.value=f*m;const t0=a.currentTime+k*.03;
+   g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(.05/(k+1),t0+.02);g.gain.exponentialRampToValueAtTime(.0001,t0+2.4);o.connect(g);g.connect(a.destination);o.start(t0);o.stop(t0+2.5);});}
+// ================= 界面 =================
+function applyLang(){document.documentElement.lang=lang;$('#tT').innerHTML=tr('title');$('#bNext').textContent=tr('next');$('#bSave').textContent=tr('save');$('#bLang').textContent=lang==='zh'?'EN':'中';
+  document.title=lang==='zh'?'本来无一物，何处惹尘埃 · Dust Sculpture':'Dust Sculpture · 本来无一物，何处惹尘埃';if(!interacted)$('#hint').textContent=tr('hint');showName();}
+let nameT=0;
+function showName(){const s=tr('shapes')[morphing?nxt:cur];$('#nB').textContent=s[0];$('#nE').textContent=s[1];$('#name').classList.add('on');clearTimeout(nameT);nameT=setTimeout(()=>$('#name').classList.remove('on'),5200);}
+function goNext(dir){if(morphing)return;nxt=((cur+(dir||1))%NS+NS)%NS;morphing=true;morph=0;idleT=0;showName();au();chime(nxt*2);}
+$('#bNext').onclick=()=>{au();goNext(1);};
+$('#bLang').onclick=()=>{lang=lang==='zh'?'en':'zh';try{localStorage.setItem('lotus-lang',lang)}catch(e){}applyLang();};
+$('#bSnd').onclick=()=>{au();muted=!muted;try{localStorage.setItem('dust-mute',muted?'1':'0')}catch(e){}$('#bSnd').style.opacity=muted?.4:1;};
+$('#bSnd').style.opacity=muted?.4:1;
+function touched(){if(interacted)return;interacted=true;$('#hint').classList.remove('on');}
+// ================= 输入 =================
+function addTrail(x,y,s){trI=(trI+1)%10;const q=trail[trI];q.x=x;q.y=y;q.s=Math.max(q.s*.5,s);}
+const ptrs=new Map();let pinchD=0,zoom=1,zoomT=1,downT=0,downX=0,downY=0,movedFar=false;
+const grav={x:0,y:0,g:0,on:false},waves=[];
+function addWave(x,y,amp,age0){waves.push({x,y,age:age0||0,amp});if(waves.length>3)waves.shift();}
+// 手机倾斜：转动 + 光源（iOS 需要在第一次触摸时授权）
+const tilt={x:0,y:0,ok:false},tiltS={x:0,y:0};let tiltAsked=false;
+function onOri(e){if(e.gamma==null||e.beta==null)return;tilt.ok=true;tilt.x=clamp(e.gamma/40,-1,1);tilt.y=clamp((e.beta-55)/40,-1,1);}
+function askTilt(){if(tiltAsked)return;tiltAsked=true;try{
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')addEventListener('deviceorientation',onOri);}).catch(()=>{});}
+  else addEventListener('deviceorientation',onOri);}catch(e){}}
+cv.addEventListener('pointerdown',e=>{au();lastIn=t;cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});touched();if(e.pointerType==='touch')askTilt();
+  if(ptrs.size===2){const [p1,p2]=[...ptrs.values()];pinchD=Math.hypot(p1.x-p2.x,p1.y-p2.y);down=false;grav.on=false;return;}
+  down=true;downT=performance.now();downX=lastPX=e.clientX;downY=lastPY=e.clientY;movedFar=false;grav.on=false;
+  if(downT-lastTap<340&&Math.hypot(e.clientX-tapX,e.clientY-tapY)<40){goNext(1);lastTap=0;}else{lastTap=downT;tapX=e.clientX;tapY=e.clientY;}
+  addTrail(e.clientX,e.clientY,.6);});
+cv.addEventListener('pointermove',e=>{
+  if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2){const [p1,p2]=[...ptrs.values()],d=Math.hypot(p1.x-p2.x,p1.y-p2.y);if(pinchD>0)zoomT=clamp(zoomT*d/pinchD,.55,2.8);pinchD=d;return;}
+  const dx=lastPX==null?0:e.clientX-lastPX,dy=lastPY==null?0:e.clientY-lastPY,d=Math.hypot(dx,dy);
+  light[0]=clamp((e.clientX/W-.5)*1.8,-1,1);light[1]=clamp(-(e.clientY/H-.5)*1.8,-1,1);lastIn=t;
+  if(down&&!movedFar&&Math.hypot(e.clientX-downX,e.clientY-downY)>14)movedFar=true;
+  if(grav.on){grav.x=e.clientX;grav.y=e.clientY;lastPX=e.clientX;lastPY=e.clientY;return;}
+  if(d>5){addTrail(e.clientX,e.clientY,clamp(.22+d/80,.22,.75));lastPX=e.clientX;lastPY=e.clientY;scatterAmt=Math.min(1,scatterAmt+d/260);}
+  if(down){yawV+=dx*.0042;pitchV+=dy*.0030;touched();}
+});
+function up(e){ptrs.delete(e.pointerId);if(ptrs.size<2)pinchD=0;
+  if(grav.on){addWave(grav.x,grav.y,1.4);grav.on=false;if(AC)chime(4+((Math.random()*6)|0));}
+  else if(down&&!movedFar&&performance.now()-downT<260){addWave(downX,downY,.85);if(AC)chime(2+((Math.random()*4)|0));}
+  if(ptrs.size===0)down=false;}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);cv.addEventListener('pointerleave',()=>{lastPX=null;lastPY=null;});
+cv.addEventListener('wheel',e=>{e.preventDefault();au();touched();zoomT=clamp(zoomT*Math.exp(-e.deltaY*.0012),.55,2.8);},{passive:false});
+if(MOBILE&&!(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'))askTilt();
+// ---- 存成壁纸：在这一帧画完后立刻取图，加一行落款 ----
+let saveReq=false,sayT=0;
+function say(m){const h=$('#hint');h.textContent=m;h.classList.add('on');clearTimeout(sayT);sayT=setTimeout(()=>{h.classList.remove('on');},2400);}
+function exportImg(){
+  const c2=document.createElement('canvas');c2.width=cv.width;c2.height=cv.height;const x=c2.getContext('2d');x.drawImage(cv,0,0);
+  const gr=x.createLinearGradient(0,c2.height*.8,0,c2.height);gr.addColorStop(0,'rgba(2,3,10,0)');gr.addColorStop(1,'rgba(2,3,10,.78)');x.fillStyle=gr;x.fillRect(0,c2.height*.8,c2.width,c2.height*.2);
+  const fs=Math.max(12,Math.round(c2.height*.017)),ff=getComputedStyle(document.body).fontFamily;x.textAlign='center';
+  x.font=fs+'px '+ff;x.fillStyle='rgba(230,236,255,.6)';x.fillText(lang==='zh'?'本来无一物，何处惹尘埃':'Dust Sculpture',c2.width/2,c2.height-fs*2.1);
+  x.font=Math.round(fs*.72)+'px '+ff;x.fillStyle='rgba(200,212,255,.38)';x.fillText(tr('shapes')[cur][0]+' · '+tr('shapes')[cur][1].split(' · ')[0],c2.width/2,c2.height-fs*.9);
+  c2.toBlob(bl=>{if(!bl)return;const name='dust-sculpture-'+Date.now()+'.png',file=new File([bl],name,{type:'image/png'});
+    if(MOBILE&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:tr('title').replace('<br>','')}).catch(()=>{});}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}
+    say(tr('saved'));},'image/png');
+}
+function doSave(){au();saveReq=true;const f=$('#flash');f.style.transition='none';f.style.opacity='.8';requestAnimationFrame(()=>{f.style.transition='opacity .7s ease-out';f.style.opacity='0';});chime(9);}
+$('#bSave').onclick=doSave;
+addEventListener('keydown',e=>{if(e.key===' '||e.key==='ArrowRight'||e.key==='Enter'){e.preventDefault();au();goNext(1);touched();}else if(e.key==='ArrowLeft'){au();goNext(-1);touched();}else if(e.key==='s'||e.key==='S'){doSave();}});
+// ================= 尺寸 =================
+function resize(){W=innerWidth;H=innerHeight;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+addEventListener('resize',resize);
+// ================= 主循环 =================
+function rotM(y,p){ // 先绕 y 再绕 x，列主序
+  const cy=Math.cos(y),sy=Math.sin(y),cp=Math.cos(p),sp=Math.sin(p);
+  // R = Rx(p)·Ry(y)
+  return new Float32Array([cy,sp*sy,-cp*sy, 0,cp,sp, sy,-sp*cy,cp*cy]);}
+let last=performance.now(),fAcc=0,fN=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=Math.min(.033,Math.max(.001,(now-last)/1000));last=now;if(!STILL)t+=dt;
+  fAcc+=dt;fN++;
+  if(fAcc>1.5){const f=fAcc/fN;fAcc=0;fN=0;
+    if(f>.024){if(nBody>NB*.3)nBody=Math.floor(nBody*.85);else if(dpr>.75){dpr=Math.max(.75,dpr-.15);resize();}}
+    else if(f<.0175&&nBody<NB)nBody=Math.min(NB,Math.floor(nBody*1.1));}
+  // 旋转：惯性 + 自转
+  if(!STILL){yaw+=yawV*dt;pitch+=pitchV*dt;yawV+=((.14)-yawV)*Math.min(1,dt*.7);pitchV*=Math.exp(-dt*2.2);pitch+=((.35+.1*Math.sin(t*.13))-pitch)*Math.min(1,dt*.5);pitch=clamp(pitch,-1.2,1.2);}
+  // 变形与自动换形态
+  if(morphing){morph+=dt/2.4;if(morph>=1){morph=0;cur=nxt;morphing=false;idleT=0;}}
+  else if(!STILL){idleT+=dt;if(idleT>14)goNext(1);}
+  // 指尖尘的衰减
+  for(let i=0;i<10;i++){trail[i].s*=Math.exp(-dt*1.4);trailU[i*3]=trail[i].x;trailU[i*3+1]=trail[i].y;trailU[i*3+2]=trail[i].s;}
+  scatterAmt*=Math.exp(-dt*1.6);
+  // 按住 → 引力；冲击波；缩放；倾斜
+  if(down&&!grav.on&&!movedFar&&ptrs.size<2&&performance.now()-downT>260){grav.on=true;grav.x=downX;grav.y=downY;}
+  grav.g+=((grav.on?1:0)-grav.g)*Math.min(1,dt*(grav.on?5:10));
+  for(let i=waves.length-1;i>=0;i--){waves[i].age+=dt;if(waves[i].age>1.8)waves.splice(i,1);}
+  zoom+=(zoomT-zoom)*Math.min(1,dt*6);
+  if(tilt.ok){tiltS.x+=(tilt.x-tiltS.x)*Math.min(1,dt*4);tiltS.y+=(tilt.y-tiltS.y)*Math.min(1,dt*4);}
+  if(droneG&&AC){droneG.gain.setTargetAtTime(muted?0:grav.g*.07,AC.currentTime,.08);droneO.frequency.setTargetAtTime(62+grav.g*42,AC.currentTime,.1);}
+  if(noiseG&&AC){noiseG.gain.setTargetAtTime(muted?0:scatterAmt*.05,AC.currentTime,.06);noiseF.frequency.setTargetAtTime(2400+scatterAmt*3200,AC.currentTime,.1);}
+  // 光源：没人碰时自己绕
+  if(tilt.ok&&t-lastIn>1.5){light[0]+=(tiltS.x*.9-light[0])*dt*3;light[1]+=(-tiltS.y*.9-light[1])*dt*3;}
+  else if(t-lastIn>3){light[0]+=(Math.cos(t*.35)*.8-light[0])*dt*.6;light[1]+=(Math.sin(t*.27)*.6+.2-light[1])*dt*.6;}
+  // ---- 绘制 ----
+  gl.viewport(0,0,cv.width,cv.height);
+  const e=sstep(0,1,morph),pa=PAL[cur],pb=PAL[morphing?nxt:cur];
+  const pal=new Float32Array(9);for(let i=0;i<3;i++)for(let k=0;k<3;k++)pal[i*3+k]=pa[i][k]+(pb[i][k]-pa[i][k])*e;
+  gl.disable(gl.BLEND);gl.useProgram(pBg);gl.bindVertexArray(vaoE);
+  gl.uniform2f(uBg.uRes,cv.width,cv.height);gl.uniform3f(uBg.uTint,pal[3],pal[4],pal[5]);gl.drawArrays(gl.TRIANGLES,0,3);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+  gl.useProgram(pPt);gl.bindVertexArray(vao);
+  const asp=W/H,fit=Math.min(1,asp*1.0)*zoom;
+  gl.uniformMatrix3fv(U.uRot,false,rotM(yaw+tiltS.x*.5,pitch+tiltS.y*.35));
+  gl.uniform1f(U.uT,t);gl.uniform1f(U.uMorph,morphing?morph:0);gl.uniform1f(U.uAspect,asp);gl.uniform1f(U.uFit,fit);gl.uniform1f(U.uDpr,dpr);
+  gl.uniform1f(U.uSize,(MOBILE?2.6:2.2)*Math.max(.7,Math.min(1.25,Math.min(W,H)/720))*Math.min(1.6,Math.sqrt(130000/NB))*Math.pow(zoom,.6));
+  gl.uniform1f(U.uFocus,4.2+.5*Math.sin(t*.21));gl.uniform1f(U.uFocusK,.5);gl.uniform1f(U.uBright,.5*Math.sqrt(130000/nBody));
+  gl.uniform1i(U.uA,cur);gl.uniform1i(U.uB,morphing?nxt:cur);gl.uniform2f(U.uRes,W,H);gl.uniform3f(U.uLight,light[0],light[1],.75);
+  gl.uniform3fv(U.uTrail,trailU);gl.uniform1f(U.uRad,Math.max(52,.13*Math.min(W,H)));gl.uniform3fv(U.uPal,pal);
+  gl.uniform3f(U.uGrav,grav.x,grav.y,grav.g);gl.uniform1f(U.uGR,Math.max(120,.3*Math.min(W,H)));
+  const wv=new Float32Array(12).fill(-1);waves.forEach((w,i)=>{wv[i*4]=w.x;wv[i*4+1]=w.y;wv[i*4+2]=w.age;wv[i*4+3]=w.amp;});
+  gl.uniform4fv(U.uWave,wv);gl.uniform2f(U.uWS,Math.max(W,H)*.65,Math.max(40,.05*Math.max(W,H)));
+  gl.drawArrays(gl.POINTS,0,ND+nBody);
+  gl.bindVertexArray(null);
+  if(saveReq){saveReq=false;exportImg();}
+}
+// ================= 启动 =================
+resize();applyLang();
+setTimeout(()=>{if(!interacted)$('#hint').classList.add('on');},1800);
+window.G={addWave,get waves(){return waves},get zoom(){return zoom},grav,tilt,doSave,get n(){return nBody},get dpr(){return dpr},get cur(){return cur},get t(){return t},next:goNext};
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
