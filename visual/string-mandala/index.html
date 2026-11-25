@@ -73,10 +73,10 @@ function hex(h){const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255]
 // ---------- 配色 ----------
 // stops：沿圆周循环的渐变；light：浅色底用“正片叠底”画线，像墨线
 const PALETTES=[
+  {name:'朱砂', bg:['#f4eee3','#e2d6c3'], stops:['#a81e1e','#2a1d18','#c8502c','#2a1d18','#a81e1e'], pin:'#2a1d18', light:true},   // 默认：朱砂（浅底墨线）
   {name:'霓虹', bg:['#160f2a','#030208'], stops:['#ff7a59','#ffd36e','#5ef0d0','#5b8cff','#d36bff','#ff7a59'], pin:'#fff0e0'},
   {name:'金箔', bg:['#1a1208','#040302'], stops:['#7a3b12','#e0a040','#fff1c4','#e0a040','#7a3b12'], pin:'#ffe9b8'},
   {name:'青瓷', bg:['#0b1a1c','#020606'], stops:['#2f7f86','#9fe3d2','#f0f7e8','#7cc2d6','#2f7f86'], pin:'#e8fff7'},
-  {name:'朱砂', bg:['#f4eee3','#e2d6c3'], stops:['#a81e1e','#2a1d18','#c8502c','#2a1d18','#a81e1e'], pin:'#2a1d18', light:true},
 ];
 PALETTES.forEach(p=>{
   // 预计算 360 色循环查找表
@@ -363,6 +363,7 @@ if(qs.has('n')){const i=PIN_OPTIONS.indexOf(+qs.get('n')); if(i>=0){pinIdx=i;N=P
 if(qs.has('lang')) lang = qs.get('lang')==='en'?'en':'zh';
 applyLang();
 resize();
+document.body.classList.toggle('light',!!PALETTES[palIdx].light);
 if(qs.has('pal')){palIdx=(+qs.get('pal'))%PALETTES.length-1; if(palIdx<0)palIdx=PALETTES.length-1; nextPal();}
 if(qs.has('still')) auto=false, bAuto.classList.remove('on');
 requestAnimationFrame(draw);
