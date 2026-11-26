@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>诗帘 · Poem Curtain</title>
+<meta property="og:title" content="诗帘 · Poem Curtain">
+<meta property="og:description" content="Verses hang from Chinese eaves as curtains of characters — brush them aside. 屋檐下垂着古诗串成的帘子，拂过就能拨开。">
+<meta property="og:image" content="https://lotushansstudio-maker.github.io/visual/poem-curtain/og.jpg">
+<meta property="og:url" content="https://lotushansstudio-maker.github.io/visual/poem-curtain/">
+<meta name="description" content="屋檐下垂着一列列诗句串成的帘子，拂过像拨开布帘。Verses hang from the eaves as curtains of characters — brush them aside.">
+<style>
+:root{
+  --paper:#e9dcc6; --ink:#2a2119; --ink2:#5a4a3a; --red:#a8321f; --line:rgba(42,33,25,.28);
+  --serif:"Songti SC","STSong","Noto Serif CJK SC","Noto Serif SC","Source Han Serif SC","SimSun",Georgia,"Times New Roman",serif;
+  --mono:"SF Mono",Menlo,Consolas,"Courier New",monospace;
+}
+body.night{ --paper:#0f0d0c; --ink:#f1e2c2; --ink2:#b9a68a; --red:#ff7a52; --line:rgba(241,226,194,.22); }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--serif);
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+body{background-repeat:repeat;transition:background-color .6s}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block}
+canvas#c:active{cursor:grabbing}
+.ui{position:fixed;z-index:2;pointer-events:none}
+.ui *{pointer-events:auto}
+/* 顶栏 */
+#nav{top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+  padding:calc(14px + env(safe-area-inset-top)) clamp(16px,3.6vw,52px) 0;font-family:var(--mono);font-size:12px;letter-spacing:.04em}
+#nav .brand{font-weight:700;font-family:var(--serif);font-size:15px;letter-spacing:.12em}
+#nav .brand small{font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.04em;color:var(--ink2);margin-left:8px}
+#nav .tools{display:flex;gap:16px}
+#nav button{background:none;border:0;color:var(--ink);font:inherit;cursor:pointer;border-bottom:1px solid var(--line);padding:2px 0}
+#nav button b{font-weight:700}
+#nav button span{opacity:.45}
+/* 左侧标题 */
+#left{left:clamp(16px,3.6vw,52px);bottom:clamp(28px,7vh,72px);max-width:28vw}
+#lede{font-family:var(--mono);font-size:12px;color:var(--ink2);margin-bottom:18px;letter-spacing:.06em}
+#title{font-size:clamp(34px,4.2vw,64px);line-height:1.08;font-weight:700;letter-spacing:.02em}
+#title .dash{display:inline-block;width:1.6em;height:2px;background:var(--ink);vertical-align:middle;margin:0 .25em}
+#title .sub{display:block}
+#titleEn{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:15px;color:var(--ink2);margin-top:10px}
+/* 右侧信息 */
+#right{right:calc(clamp(16px,3.6vw,52px) + 100px);top:50%;transform:translateY(-38%);width:min(22vw,320px);font-family:var(--mono);font-size:11px;color:var(--ink2)}
+#right .q{font-family:var(--serif);font-size:15px;line-height:1.75;color:var(--ink);margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+#right table{width:100%;border-collapse:collapse}
+#right td{padding:4px 0;vertical-align:top;line-height:1.5}
+#right td:first-child{width:38%;font-size:10px;letter-spacing:.08em;opacity:.8;text-transform:uppercase}
+#right td:last-child{color:var(--ink)}
+#trans{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:12.5px;line-height:1.6;color:var(--ink2)}
+#formula{margin-top:14px;font-size:10.5px;opacity:.8}
+#formula i{font-style:normal;color:var(--red)}
+/* 左右缩略 */
+.thumb{top:50%;transform:translateY(-50%);width:74px;height:74px;border:1px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:none;color:var(--ink);font-family:var(--serif);font-size:11px;gap:4px}
+.thumb canvas{width:56px;height:30px}
+.thumb .ar{position:absolute;top:4px;font-family:var(--mono);font-size:10px;opacity:.6}
+#prev{left:clamp(16px,3.6vw,52px)} #prev .ar{left:6px}
+#next{right:clamp(16px,3.6vw,52px)} #next .ar{right:6px}
+#hint{left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--ink2);
+  letter-spacing:.08em;white-space:nowrap;transition:opacity 1.2s;background:color-mix(in srgb,var(--paper) 70%,transparent);padding:4px 10px;border-radius:20px}
+#hint.off{opacity:0}
+#meter{left:clamp(16px,3.6vw,52px);top:calc(44px + env(safe-area-inset-top));font-family:var(--mono);font-size:10.5px;color:var(--ink2);letter-spacing:.05em}
+#meter b{color:var(--red);font-weight:400}
+/* 手机 */
+#mbar{display:none}
+#sheet{display:none}
+body.m #left,body.m #right,body.m .thumb{display:none}
+body.m #mbar{display:flex;left:0;right:0;bottom:0;padding:16px 16px calc(14px + env(safe-area-inset-bottom));align-items:flex-end;justify-content:space-between;gap:10px;
+  background:linear-gradient(to top,var(--paper) 70%,color-mix(in srgb,var(--paper) 0%,transparent))}
+body.m #mbar .t{flex:1;min-width:0}
+body.m #mbar .t .a{font-family:var(--mono);font-size:11px;color:var(--ink2);letter-spacing:.06em}
+body.m #mbar .t .n{font-size:30px;font-weight:700;line-height:1.15;margin-top:4px}
+body.m #mbar .t .e{font-family:Georgia,serif;font-style:italic;font-size:13px;color:var(--ink2)}
+body.m #mbar .bt{display:flex;gap:8px}
+body.m #mbar button{width:44px;height:44px;border:1px solid var(--line);background:none;color:var(--ink);font-family:var(--serif);font-size:16px;border-radius:50%;cursor:pointer}
+body.m #hint{bottom:calc(122px + env(safe-area-inset-bottom))}
+body.m #sheet{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--paper);border-top:1px solid var(--line);padding:22px 20px calc(24px + env(safe-area-inset-bottom));
+  transform:translateY(105%);transition:transform .45s cubic-bezier(.2,.8,.2,1);display:block;font-family:var(--mono);font-size:11px;color:var(--ink2);max-height:70vh;overflow:auto;box-shadow:0 -10px 40px rgba(0,0,0,.12)}
+body.m #sheet.on{transform:none}
+#sheet .x{position:absolute;right:14px;top:10px;background:none;border:0;font-size:22px;color:var(--ink);width:44px;height:44px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="nav" class="ui">
+  <div class="brand">诗帘<small>Poem Curtain</small></div>
+  <div class="tools">
+    <button id="bTheme"><b data-zh="昼" data-en="Day">昼</b><span> / </span><span data-zh="夜" data-en="Night">夜</span></button>
+    <button id="bLang"><b>中</b><span> / EN</span></button>
+  </div>
+</div>
+<div id="meter" class="ui"></div>
+
+<div id="left" class="ui">
+  <div id="lede"></div>
+  <div id="title"></div>
+  <div id="titleEn"></div>
+</div>
+
+<div id="right" class="ui">
+  <div class="q" id="quote"></div>
+  <table id="info"></table>
+  <div id="trans"></div>
+  <div id="formula">x<sub>n+1</sub> = 2x<sub>n</sub> − x<sub>n−1</sub> + g·Δt² &nbsp;<i>Verlet</i></div>
+</div>
+
+<button class="ui thumb" id="prev"><span class="ar">‹</span><canvas width="112" height="60"></canvas><span class="nm"></span></button>
+<button class="ui thumb" id="next"><span class="ar">›</span><canvas width="112" height="60"></canvas><span class="nm"></span></button>
+
+<div id="mbar" class="ui">
+  <div class="t"><div class="a" id="mA"></div><div class="n" id="mN"></div><div class="e" id="mE"></div></div>
+  <div class="bt"><button id="mPrev" aria-label="prev">‹</button><button id="mInfo">译</button><button id="mNext" aria-label="next">›</button></div>
+</div>
+<div id="sheet"><button class="x" id="sx">×</button><div id="sheetBody"></div></div>
+
+<div id="hint" class="ui"></div>
+
+<script>
+'use strict';
+// ============ 诗与屋 ============
+// 诗句均为公版古诗；英文为自译
+const SCENES=[
+ {roof:'palace', poet:'李白',poetEn:'Li Bai',dyn:'唐',dynEn:'Tang',title:'玉阶怨',titleEn:'Jade Steps Lament',
+  form:'五言绝句',formEn:'5-char quatrain',roofZh:'庑殿顶 · 宫',roofEn:'Hip roof · palace',
+  lines:['玉阶生白露','夜久侵罗袜','却下水晶帘','玲珑望秋月'],
+  en:'White dew rises on the jade steps; / the night grows long, it soaks her silk socks. / She lets down the crystal curtain, / and through its glitter gazes at the autumn moon.',
+  note:'诗里放下的正是一挂帘子。',noteEn:'The poem itself lets a curtain down.'},
+ {roof:'pavilion', poet:'李清照',poetEn:'Li Qingzhao',dyn:'宋',dynEn:'Song',title:'如梦令',titleEn:'As in a Dream',
+  form:'词',formEn:'ci lyric',roofZh:'攒尖顶 · 亭',roofEn:'Pyramidal roof · pavilion',
+  lines:['昨夜雨疏风骤','浓睡不消残酒','试问卷帘人','却道海棠依旧','知否','知否','应是绿肥红瘦'],
+  en:'Last night, sparse rain and gusting wind; / deep sleep did not clear the wine. / I ask the one rolling up the curtain — / “the crabapple is as before,” she says. / Don’t you know, don’t you know? / The green grows lush, the red grows thin.',
+  note:'卷帘人：拨开这挂帘子的，就是你。',noteEn:'The one rolling up the curtain — that is you.'},
+ {roof:'huizhou', poet:'刘禹锡',poetEn:'Liu Yuxi',dyn:'唐',dynEn:'Tang',title:'陋室铭',titleEn:'Ode to a Humble Room',
+  form:'铭',formEn:'inscription',roofZh:'马头墙 · 徽州民居',roofEn:'Horse-head walls · Huizhou house',
+  lines:['山不在高','有仙则名','水不在深','有龙则灵','斯是陋室','惟吾德馨','苔痕上阶绿','草色入帘青'],
+  en:'A mountain need not be high — an immortal makes it famed. / Water need not be deep — a dragon makes it divine. / This is a humble room, fragrant only with virtue. / Moss climbs the steps in green; grass tints the curtain blue.',
+  note:'“草色入帘青”——帘子也染了草色。',noteEn:'“Grass tints the curtain” — so it does.'},
+ {roof:'tower', poet:'王之涣',poetEn:'Wang Zhihuan',dyn:'唐',dynEn:'Tang',title:'登鹳雀楼',titleEn:'On Stork Tower',
+  form:'五言绝句',formEn:'5-char quatrain',roofZh:'重檐歇山 · 楼',roofEn:'Double-eave roof · tower',
+  lines:['白日依山尽','黄河入海流','欲穷千里目','更上一层楼'],
+  en:'The white sun sinks behind the hills; / the Yellow River runs into the sea. / To see a thousand li further, / climb one more storey.',
+  note:'两层屋檐，正合“更上一层楼”。',noteEn:'Two eaves — one more storey.'},
+ {roof:'temple', poet:'杜牧',poetEn:'Du Mu',dyn:'唐',dynEn:'Tang',title:'江南春',titleEn:'Spring South of the River',
+  form:'七言绝句',formEn:'7-char quatrain',roofZh:'歇山顶 · 寺',roofEn:'Gable-hip roof · temple',
+  lines:['千里莺啼绿映红','水村山郭酒旗风','南朝四百八十寺','多少楼台烟雨中'],
+  en:'A thousand li of orioles, green against red; / wine flags in the wind by river towns and hill walls. / Four hundred and eighty temples of the Southern Dynasties — / how many towers stand in the misty rain.',
+  note:'南朝四百八十寺，这是其中一座。',noteEn:'One of the four hundred and eighty.'}
+];
+const NS=SCENES.length;
+
+// ============ 状态 ============
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false, L={};          // L: 布局参数
+let lang=(()=>{try{const s=localStorage.getItem('lotus-lang');if(s)return s;}catch(e){} return (navigator.language||'zh').startsWith('zh')?'zh':'en';})();
+let night=false;
+let cur=0, cam=-0.55, camV=0;                     // 当前场景 / 镜头位置(弹簧)
+const curtains=[];                                 // 每个场景一挂帘
+const ptr={x:-1e4,y:-1e4,px:-1e4,py:-1e4,on:false,down:false,type:'mouse',moved:0,t0:0,sx:0,sy:0};
+let gusts=[];                                      // 点击起风
+let touched=false, openPct=0, frame=0;
+
+// ============ 纸纹 ============
+function makePaper(){
+  const s=256,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d');
+  const base=night?[16,14,13]:[233,220,198];
+  const img=g.createImageData(s,s);
+  for(let i=0;i<s*s;i++){
+    const x=i%s,y=(i/s)|0;
+    // 麻布般的经纬纹 + 噪点
+    const w=Math.sin(x*1.9)*0.5+Math.sin(y*2.1)*0.5;
+    const n=(Math.random()-.5)*(night?7:14)+w*(night?2.5:5);
+    img.data[i*4]=base[0]+n;img.data[i*4+1]=base[1]+n*.95;img.data[i*4+2]=base[2]+n*.85;img.data[i*4+3]=255;
+  }
+  g.putImageData(img,0,0);
+  // 细纤维
+  g.globalAlpha=night?.05:.08;g.strokeStyle=night?'#fff':'#6b5338';
+  for(let k=0;k<60;k++){g.lineWidth=Math.random()*.8+.2;g.beginPath();const x=Math.random()*s,y=Math.random()*s,a=Math.random()*6.28,l=6+Math.random()*20;g.moveTo(x,y);g.quadraticCurveTo(x+Math.cos(a+.5)*l*.5,y+Math.sin(a+.5)*l*.5,x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}
+  document.body.style.backgroundImage=`url(${c.toDataURL()})`;
+}
+
+// ============ 屋顶（程序手绘，原点=帘子挂点中心，向上为负） ============
+function rnd(seed){let s=seed*9301+49297;return()=>((s=(s*9301+49297)%233280)/233280);}
+const ROOF_STYLE={
+  palace:  {tile:['#d6a542','#b78324','#7a5410'], band:'#8e2b1d', bandH:.05, ink:'#5a3d0c'},
+  pavilion:{tile:['#6d8580','#4c625d','#26332f'], band:'#7d2a1f', bandH:.04, ink:'#1e2826'},
+  huizhou: {tile:['#4d4b49','#353332','#171615'], band:'#3a2a20', bandH:.035, ink:'#141312'},
+  tower:   {tile:['#596068','#3f454d','#1d2126'], band:'#9a3020', bandH:.04, ink:'#1a1c20'},
+  temple:  {tile:['#c0583a','#9c4228','#5e2412'], band:'#2f4a3f', bandH:.05, ink:'#4a1a0c'}
+};
+// 一层屋檐：底边微弯两端起翘，侧边内凹
+function tierPath(g,yb,wb,wt,h,lift){
+  const bl=-wb/2, br=wb/2, yt=yb-h;
+  g.beginPath();
+  g.moveTo(bl,yb-lift);
+  g.bezierCurveTo(-wb*.3,yb+lift*.12,wb*.3,yb+lift*.12,br,yb-lift);
+  g.bezierCurveTo(br-(wb-wt)*.55,yb-h*.1,wt/2+(wb-wt)*.07,yb-h*.55,wt/2,yt);
+  g.lineTo(-wt/2,yt);
+  g.bezierCurveTo(-wt/2-(wb-wt)*.07,yb-h*.55,bl+(wb-wt)*.55,yb-h*.1,bl,yb-lift);
+  g.closePath();
+}
+function bez(t,a,b,c,d){const u=1-t;return u*u*u*a+3*u*u*t*b+3*u*t*t*c+t*t*t*d;}
+function tier(g,R,st,yb,wb,wt,h,lift,seed){
+  const r=rnd(seed);
+  tierPath(g,yb,wb,wt,h,lift);
+  const gr=g.createLinearGradient(0,yb-h,0,yb);
+  gr.addColorStop(0,st.tile[1]);gr.addColorStop(.75,st.tile[0]);gr.addColorStop(1,st.tile[1]);
+  g.fillStyle=gr;g.fill();
+  g.save();tierPath(g,yb,wb,wt,h,lift);g.clip();
+  // 瓦垄：从檐口收向屋脊
+  const n=Math.round(wb/(R*.018));
+  for(let k=0;k<=n;k++){
+    const u=k/n, t=u;
+    const bx=bez(t,-wb/2,-wb*.3,wb*.3,wb/2), by=bez(t,yb-lift,yb+lift*.12,yb+lift*.12,yb-lift);
+    const tx=-wt/2+u*wt, ty=yb-h;
+    g.strokeStyle=st.tile[2];g.globalAlpha=.55+r()*.3;g.lineWidth=R*.0045+r()*R*.002;
+    g.beginPath();g.moveTo(bx,by);g.quadraticCurveTo(bx*.82+tx*.18,by*.35+ty*.65,tx,ty);g.stroke();
+    g.strokeStyle='rgba(255,240,210,.35)';g.globalAlpha=.4*r();g.lineWidth=R*.002;
+    g.beginPath();g.moveTo(bx+R*.004,by);g.quadraticCurveTo(bx*.82+tx*.18+R*.004,by*.35+ty*.65,tx+R*.002,ty);g.stroke();
+  }
+  // 瓦片横纹
+  g.globalAlpha=.22;g.strokeStyle=st.tile[2];g.lineWidth=R*.0018;
+  for(let s=.05;s<1;s+=.055){
+    g.beginPath();
+    for(let k=0;k<=24;k++){const u=k/24,bx=bez(u,-wb/2,-wb*.3,wb*.3,wb/2),by=bez(u,yb-lift,yb+lift*.12,yb+lift*.12,yb-lift);
+      const tx=-wt/2+u*wt,ty=yb-h,ss=1-Math.pow(1-s,1.6);const x=bx+(tx-bx)*ss,y=by+(ty-by)*ss;k?g.lineTo(x,y):g.moveTo(x,y);}
+    g.stroke();
+  }
+  // 手绘颗粒
+  g.globalAlpha=1;
+  for(let k=0;k<wb*h/(R*R)*2600;k++){const x=(r()-.5)*wb,y=yb-r()*h;g.fillStyle=r()<.5?'rgba(0,0,0,.12)':'rgba(255,245,220,.1)';g.fillRect(x,y,R*.003,R*(.004+r()*.01));}
+  // 左上来光
+  const lg=g.createLinearGradient(-wb/2,yb-h,wb/2,yb);lg.addColorStop(0,'rgba(255,240,210,.18)');lg.addColorStop(.6,'rgba(0,0,0,0)');lg.addColorStop(1,'rgba(0,0,0,.22)');
+  g.fillStyle=lg;g.fillRect(-wb,yb-h-5,wb*2,h+lift*2+10);
+  g.restore();
+  // 檐口 + 瓦当
+  g.strokeStyle=st.ink;g.lineWidth=R*.012;g.beginPath();
+  g.moveTo(-wb/2,yb-lift);g.bezierCurveTo(-wb*.3,yb+lift*.12,wb*.3,yb+lift*.12,wb/2,yb-lift);g.stroke();
+  const m=Math.round(wb/(R*.026));
+  for(let k=0;k<=m;k++){const u=k/m,x=bez(u,-wb/2,-wb*.3,wb*.3,wb/2),y=bez(u,yb-lift,yb+lift*.12,yb+lift*.12,yb-lift);
+    g.fillStyle=st.tile[2];g.beginPath();g.arc(x,y+R*.006,R*.0075,0,6.283);g.fill();}
+}
+function ridge(g,R,st,y,w,ends){
+  g.fillStyle=st.ink;g.beginPath();g.rect(-w/2,y-R*.032,w,R*.034);g.fill();
+  g.fillStyle='rgba(255,240,210,.18)';g.fillRect(-w/2,y-R*.032,w,R*.006);
+  if(!ends)return;
+  for(const s of[-1,1]){ // 鸱吻：向内卷的尾
+    g.save();g.translate(s*w/2,y-R*.03);g.scale(s,1);g.fillStyle=st.ink;g.beginPath();
+    g.moveTo(-R*.01,0);g.lineTo(R*.02,0);g.quadraticCurveTo(R*.03,-R*.06,R*.0,-R*.085);
+    g.quadraticCurveTo(-R*.035,-R*.07,-R*.025,-R*.04);g.quadraticCurveTo(-R*.005,-R*.055,-R*.0,-R*.04);
+    g.quadraticCurveTo(R*.005,-R*.02,-R*.01,0);g.fill();g.restore();
+  }
+}
+function brackets(g,R,st,w,hh){ // 斗拱/额枋带
+  g.fillStyle=st.band;g.fillRect(-w/2,-hh,w,hh);
+  g.fillStyle='rgba(0,0,0,.25)';g.fillRect(-w/2,-hh*.35,w,hh*.35);
+  const n=Math.round(w/(R*.05));
+  for(let k=0;k<n;k++){const x=-w/2+(k+.5)*w/n;g.fillStyle='rgba(230,190,110,.55)';g.fillRect(x-R*.008,-hh*.95,R*.016,hh*.5);
+    g.fillStyle='rgba(20,40,35,.5)';g.fillRect(x-R*.014,-hh*.45,R*.028,hh*.15);}
+}
+// 返回屋顶相对帘口的高度（R=檐宽）
+function drawRoof(g,kind,R){
+  const st=ROOF_STYLE[kind];const bh=R*st.bandH;
+  g.save();
+  if(kind==='palace'){
+    brackets(g,R,st,R*.8,bh);
+    tier(g,R,st,-bh,R,R*.56,R*.27,R*.055,1);ridge(g,R,st,-bh-R*.27,R*.6,true);
+  }else if(kind==='pavilion'){
+    brackets(g,R,st,R*.74,bh);
+    tier(g,R,st,-bh,R*.96,R*.03,R*.36,R*.085,2);
+    // 宝顶
+    const y=-bh-R*.36;g.fillStyle=st.ink;g.fillRect(-R*.006,y-R*.07,R*.012,R*.07);
+    g.beginPath();g.arc(0,y-R*.08,R*.026,0,6.283);g.fill();g.beginPath();g.arc(0,y-R*.125,R*.016,0,6.283);g.fill();
+    g.fillStyle='rgba(255,240,210,.3)';g.beginPath();g.arc(-R*.008,y-R*.088,R*.008,0,6.283);g.fill();
+  }else if(kind==='huizhou'){
+    // 粉墙 + 阶梯马头墙
+    const wallTop=-R*.42, ww=R*.86;
+    g.fillStyle='#eee8dc';
+    g.beginPath();g.moveTo(-ww/2,-bh);
+    const steps=[[.5,-.2],[.36,-.31],[.22,-.42]];
+    g.lineTo(-ww/2,-R*.2);g.lineTo(-R*.36,-R*.2);g.lineTo(-R*.36,-R*.31);g.lineTo(-R*.22,-R*.31);g.lineTo(-R*.22,wallTop);
+    g.lineTo(R*.22,wallTop);g.lineTo(R*.22,-R*.31);g.lineTo(R*.36,-R*.31);g.lineTo(R*.36,-R*.2);g.lineTo(ww/2,-R*.2);g.lineTo(ww/2,-bh);g.closePath();g.fill();
+    // 雨痕（裁在墙内）
+    g.save();g.clip();const r=rnd(7);for(let k=0;k<70;k++){const x=(r()-.5)*ww,y=-R*.2-r()*R*.2;const gg=g.createLinearGradient(0,y,0,y+R*.2);gg.addColorStop(0,'rgba(60,55,50,.09)');gg.addColorStop(1,'rgba(60,55,50,0)');g.fillStyle=gg;g.fillRect(x,y,R*(.002+r()*.006),R*.2);}g.restore();
+    // 墙帽
+    const cap=(x0,x1,y)=>{g.fillStyle=st.ink;g.beginPath();g.moveTo(x0-R*.02,y-R*.006);g.lineTo(x1+R*.02,y-R*.006);g.lineTo(x1+R*.03,y-R*.03);g.lineTo(x1,y-R*.02);g.lineTo(x0,y-R*.02);g.lineTo(x0-R*.03,y-R*.03);g.closePath();g.fill();
+      g.fillStyle='#5c5955';g.fillRect(x0-R*.02,y-R*.006,x1-x0+R*.04,R*.008);};
+    cap(-R*.22,R*.22,wallTop);cap(-R*.36,-R*.22,-R*.31);cap(R*.22,R*.36,-R*.31);cap(-ww/2,-R*.36,-R*.2);cap(R*.36,ww/2,-R*.2);
+    // 小窗
+    g.fillStyle='#2b2724';g.fillRect(-R*.05,-R*.36,R*.1,R*.07);g.strokeStyle='#eee8dc';g.lineWidth=R*.004;
+    for(let k=1;k<4;k++){g.beginPath();g.moveTo(-R*.05+k*R*.025,-R*.36);g.lineTo(-R*.05+k*R*.025,-R*.29);g.stroke();}
+    g.beginPath();g.moveTo(-R*.05,-R*.325);g.lineTo(R*.05,-R*.325);g.stroke();
+    brackets(g,R,st,R*.78,bh);
+    tier(g,R,st,-bh,R*.98,R*.86,R*.11,R*.02,3);
+  }else if(kind==='tower'){
+    brackets(g,R,st,R*.76,bh);
+    tier(g,R,st,-bh,R,R*.7,R*.14,R*.06,4);
+    // 二层：红墙+窗棂
+    const y1=-bh-R*.14, wallH=R*.1, w2=R*.6;
+    g.fillStyle='#8f2c1e';g.fillRect(-w2/2,y1-wallH,w2,wallH);
+    g.strokeStyle='rgba(240,200,120,.55)';g.lineWidth=R*.003;
+    for(let k=0;k<=12;k++){const x=-w2/2+k*w2/12;g.beginPath();g.moveTo(x,y1-wallH);g.lineTo(x,y1);g.stroke();}
+    for(let k=1;k<4;k++){g.beginPath();g.moveTo(-w2/2,y1-wallH*k/4);g.lineTo(w2/2,y1-wallH*k/4);g.stroke();}
+    g.fillStyle='rgba(0,0,0,.35)';g.fillRect(-w2/2,y1-wallH,w2,wallH*.25);
+    tier(g,R,st,y1-wallH,R*.8,R*.4,R*.18,R*.06,5);ridge(g,R,st,y1-wallH-R*.18,R*.44,true);
+  }else{ // temple 歇山：下坡 + 山花
+    brackets(g,R,st,R*.8,bh);
+    const y1=-bh-R*.15;
+    // 上段：山面（红底金边）+ 长脊的上坡
+    tier(g,R,st,-bh,R*1.02,R*.72,R*.15,R*.075,6);
+    g.fillStyle='#7a2616';g.fillRect(-R*.3,y1-R*.035,R*.6,R*.035);
+    g.fillStyle='rgba(235,190,100,.75)';for(let k=0;k<9;k++)g.fillRect(-R*.27+k*R*.0675,y1-R*.028,R*.03,R*.02);
+    tier(g,R,st,y1-R*.035,R*.74,R*.5,R*.15,R*.035,8);
+    ridge(g,R,st,y1-R*.185,R*.56,true);
+  }
+  g.restore();
+}
+// 屋顶缓存到离屏画布（含投影）
+function roofCanvas(kind,R,scale){
+  const w=Math.ceil(R*1.5),h=Math.ceil(R*.78);
+  const c=document.createElement('canvas');c.width=w*scale;c.height=h*scale;const g=c.getContext('2d');
+  g.scale(scale,scale);g.translate(w/2,h*.86);
+  // 投影：先画一遍纯色剪影
+  g.save();g.shadowColor=night?'rgba(0,0,0,.7)':'rgba(70,45,20,.42)';g.shadowBlur=R*.06*scale;g.shadowOffsetX=R*.04*scale;g.shadowOffsetY=R*.05*scale;
+  drawRoof(g,kind,R);g.restore();
+  drawRoof(g,kind,R);
+  if(night){g.globalCompositeOperation='source-atop';g.fillStyle='rgba(8,8,16,.45)';g.fillRect(-w,-h,w*2,h*2);
+    const gg=g.createLinearGradient(0,-R*.1,0,0);gg.addColorStop(0,'rgba(255,170,80,0)');gg.addColorStop(1,'rgba(255,170,80,.28)');g.fillStyle=gg;g.fillRect(-R*.42,-R*.12,R*.84,R*.13);}
+  return {c,w,h,ox:w/2,oy:h*.86};
+}
+
+// ============ 字形缓存 ============
+let glyphCache=new Map();
+function glyph(ch,color){
+  const k=ch+color;let c=glyphCache.get(k);if(c)return c;
+  const s=Math.ceil(L.fs*1.4*DPR);c=document.createElement('canvas');c.width=c.height=s;
+  const g=c.getContext('2d');g.fillStyle=color;g.textAlign='center';g.textBaseline='middle';
+  g.font=`${night?500:700} ${L.fs*DPR}px ${getComputedStyle(document.documentElement).getPropertyValue('--serif')}`;
+  g.fillText(ch,s/2,s/2+L.fs*DPR*.04);glyphCache.set(k,c);return c;
+}
+let glowSprite=null;
+function makeGlow(){const s=64;const c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d');
+  const gr=g.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);gr.addColorStop(0,'rgba(255,190,110,.55)');gr.addColorStop(.4,'rgba(255,150,70,.16)');gr.addColorStop(1,'rgba(255,120,40,0)');
+  g.fillStyle=gr;g.fillRect(0,0,s,s);glowSprite=c;}
+
+// ============ 帘子：Verlet 绳 ============
+function buildCurtain(si){
+  const sc=SCENES[si];
+  const cols=L.cols, rows=L.rows, n=cols*rows;
+  const text=sc.lines.join(''), tl=sc.title+sc.poet;
+  // 竖排：每根绳从诗里不同句读起（黄金比错相位，避免横向重复）；约五分之一的绳里竖嵌一次红色题名
+  const r=rnd(si+3);
+  const cu={si,cols,rows,x:new Float32Array(n),y:new Float32Array(n),px:new Float32Array(n),py:new Float32Array(n),
+    ch:new Array(n),red:new Uint8Array(n),active:false,roof:null};
+  for(let j=0;j<cols;j++){
+    const ph=Math.floor(((cols-1-j)*0.618034%1)*text.length);
+    for(let i=0;i<rows;i++){const k=j*rows+i;cu.ch[k]=text[(ph+i)%text.length];}
+    if(r()<.22&&rows>tl.length+4){const at=2+Math.floor(r()*(rows-tl.length-3));for(let q=0;q<tl.length;q++){cu.ch[j*rows+at+q]=tl[q];cu.red[j*rows+at+q]=1;}}
+  }
+  cu.roof=roofCanvas(sc.roof,L.R,DPR);
+  return cu;
+}
+function anchorX(cu,j,sx){return sx-L.cw/2+(j+.5)*L.cw/cu.cols;}
+function resetCurtain(cu,sx){
+  for(let j=0;j<cu.cols;j++)for(let i=0;i<cu.rows;i++){
+    const k=j*cu.rows+i;const x=anchorX(cu,j,sx),y=L.ey+(i+.5)*L.rs;
+    cu.x[k]=cu.px[k]=x;cu.y[k]=cu.py[k]=y;
+  }
+}
+const G=1400, DT=1/60, DAMP=.978, ITER=5;
+function step(cu,sx,t){
+  const {cols,rows,x,y,px,py}=cu;const n=cols*rows;
+  const g=G*DT*DT, rs=L.rs, minGap=L.cs*.42;
+  // 积分
+  for(let j=0;j<cols;j++){
+    const wind=(Math.sin(t*.7+j*.21)*.6+Math.sin(t*1.9-j*.09)*.4)*L.cs*.0009;
+    for(let i=1;i<rows;i++){
+      const k=j*rows+i;
+      let vx=(x[k]-px[k])*DAMP, vy=(y[k]-py[k])*DAMP;
+      px[k]=x[k];py[k]=y[k];
+      x[k]+=vx+wind*(i/rows);y[k]+=vy+g;
+    }
+  }
+  // 风团（点击）
+  for(const gu of gusts){
+    const a=gu.life/gu.max;if(a<=0)continue;
+    for(let k=0;k<n;k++){const dx=x[k]-gu.x,dy=y[k]-gu.y,d2=dx*dx+dy*dy,r=L.gustR;if(d2<r*r){const d=Math.sqrt(d2)+1,f=(1-d/r)*a*L.cs*.12;x[k]+=dx/d*f;y[k]+=dy/d*f*.4;}}
+  }
+  // 手指/鼠标：沿运动线段把字推开
+  const pr=ptr.on?(ptr.type==='mouse'?(ptr.down?L.pr*1.5:L.pr):L.pr*1.6):0;
+  for(let it=0;it<ITER;it++){
+    // 顶端钉住
+    for(let j=0;j<cols;j++){const k=j*rows;x[k]=px[k]=anchorX(cu,j,sx);y[k]=py[k]=L.ey+rs*.5;}
+    // 绳长约束
+    for(let j=0;j<cols;j++){
+      for(let i=1;i<rows;i++){
+        const a=j*rows+i-1,b=a+1;const dx=x[b]-x[a],dy=y[b]-y[a];const d=Math.sqrt(dx*dx+dy*dy)||1e-4;const df=(d-rs)/d;
+        if(i===1){x[b]-=dx*df;y[b]-=dy*df;}else{x[a]+=dx*df*.5;y[a]+=dy*df*.5;x[b]-=dx*df*.5;y[b]-=dy*df*.5;}
+      }
+    }
+    // 相邻绳不穿插：同一行保持最小间距 → 布帘般堆叠
+    for(let i=1;i<rows;i++)for(let j=0;j<cols-1;j++){
+      const a=j*rows+i,b=a+rows;const dx=x[b]-x[a];
+      if(dx<minGap){const c=(minGap-dx)*.5;x[a]-=c;x[b]+=c;}
+    }
+    if(pr>0){
+      const ax=ptr.px,ay=ptr.py,bx=ptr.x,by=ptr.y,sx2=bx-ax,sy2=by-ay,ll=sx2*sx2+sy2*sy2||1;
+      for(let k=0;k<n;k++){
+        if(k%rows===0)continue;
+        let t2=((x[k]-ax)*sx2+(y[k]-ay)*sy2)/ll;t2=t2<0?0:t2>1?1:t2;
+        const cx=ax+sx2*t2,cy=ay+sy2*t2,dx=x[k]-cx,dy=y[k]-cy,d2=dx*dx+dy*dy;
+        // 只横向推开：像手指把绳子往两边拨，留出一道缝
+        if(d2<pr*pr){const hw=Math.sqrt(pr*pr-dy*dy);const tx=dx>=0?cx+hw:cx-hw;x[k]+=(tx-x[k])*.85;}
+      }
+    }
+  }
+}
+
+// ============ 绘制 ============
+function drawCurtain(cu,sx){
+  const {cols,rows,x,y}=cu;const ink=night?'#f3dfb4':'#2b2118', red=night?'#ff8a5c':'#a5301c';
+  const gs=Math.ceil(L.fs*1.4);
+  if(night){ // 背后的暖光
+    const gr=ctx.createRadialGradient(sx,L.ey+L.R*.2,0,sx,L.ey+L.R*.2,L.cw*1.1);gr.addColorStop(0,'rgba(255,160,70,.14)');gr.addColorStop(1,'rgba(255,160,70,0)');
+    ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';
+    const gsz=L.fs*3.2;
+    for(let k=0;k<x.length;k+=1){ctx.globalAlpha=cu.red[k]?.5:.28;ctx.drawImage(glowSprite,x[k]-gsz/2,y[k]-gsz/2,gsz,gsz);}
+    ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+  }
+  for(let j=0;j<cols;j++){
+    for(let i=0;i<rows;i++){
+      const k=j*rows+i;if(y[k]>H+L.fs)continue;
+      // 字随绳段倾斜
+      const a=i>0?k-1:k, b=i>0?k:k+1;const ang=Math.atan2(x[a]-x[b],y[b]-y[a]);
+      const c=Math.cos(ang),s=Math.sin(ang);
+      ctx.setTransform(c*DPR,s*DPR,-s*DPR,c*DPR,x[k]*DPR,y[k]*DPR);
+      if(mobile){const f=(L.bottom+L.rs-y[k])/(L.rs*4);ctx.globalAlpha=f>1?1:f<.08?.08:f;}   // 手机：帘尾渐隐
+      ctx.drawImage(glyph(cu.ch[k],cu.red[k]?red:ink),-gs/2,-gs/2,gs,gs);
+    }
+  }
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;
+  // 屋顶压在帘子上面
+  const r=cu.roof;ctx.drawImage(r.c,sx-r.ox,L.ey-r.oy,r.w,r.h);
+}
+function sceneX(i){
+  let d=i-cam;d=((d%NS)+NS*1.5)%NS-NS/2;    // 环形
+  return W/2+d*L.S;
+}
+let last=performance.now(), acc=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt=Math.min(.05,(now-last)/1000);last=now;acc+=dt;
+  // 镜头弹簧（临界阻尼略欠）：让屋子滑动时帘子自然甩动
+  let target=cur;let d=target-cam;d=((d%NS)+NS*1.5)%NS-NS/2;
+  const k=38,c=10.5;camV+=(d*k-camV*c)*dt;cam+=camV*dt;cam=((cam%NS)+NS)%NS;
+  const t=now/1000;
+  let steps=0;
+  while(acc>=DT&&steps<4){acc-=DT;steps++;
+    for(let i=0;i<NS;i++){const cu=curtains[i],sx=sceneX(i);const vis=Math.abs(sx-W/2)<W/2+L.cw;
+      if(vis&&!cu.active){cu.active=true;resetCurtain(cu,sx);cu.lsx=sx;}if(!vis)cu.active=false;
+      if(cu.active){ // 屋子滑动时大部分位移整体带走，只留一点惯性让帘子轻轻甩
+        const dd=(sx-cu.lsx)*.9;cu.lsx=sx;if(dd){for(let q=0;q<cu.x.length;q++){cu.x[q]+=dd;cu.px[q]+=dd;}}}
+      if(cu.active)step(cu,sx,t);}
+    for(const gu of gusts)gu.life-=DT;gusts=gusts.filter(g=>g.life>0);
+    ptr.px+=(ptr.x-ptr.px)*.6;ptr.py+=(ptr.y-ptr.py)*.6;   // 平滑跟手
+  }
+  if(acc>DT*4)acc=0;
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,H);
+  for(let i=0;i<NS;i++){const cu=curtains[i];if(cu.active)drawCurtain(cu,sceneX(i));}
+  // 帘开度：偏离静止位置的字所占比例
+  if(++frame%12===0){const cu=curtains[cur];if(cu.active){let m=0;const sx=sceneX(cur);
+    for(let j=0;j<cu.cols;j++){const ax=anchorX(cu,j,sx);for(let i=1;i<cu.rows;i++){const k=j*cu.rows+i;if(Math.abs(cu.x[k]-ax)>L.cs*.7)m++;}}
+    openPct+=(m/(cu.cols*(cu.rows-1))*100-openPct)*.5;
+    meter.innerHTML=`${lang==='zh'?'绳':'ropes'} ${cu.cols} × ${lang==='zh'?'字':'glyphs'} ${cu.cols*cu.rows} · ${lang==='zh'?'帘开':'open'} <b>${openPct.toFixed(1)}%</b>`;}}
+}
+
+// ============ 布局 ============
+function layout(){
+  DPR=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;
+  mobile=W<900||W/H<.95;document.body.classList.toggle('m',mobile);
+  const top=mobile?60:56;
+  if(mobile){
+    const R=Math.min(W*.86,H*.5);const fs=Math.max(13,Math.min(16,R/24));
+    L={R,fs,cw:R*.74,rs:fs*1.12,cs:fs*1.06,S:W*1.05,pr:fs*1.9,gustR:R*.5};
+    L.ey=top+R*.62;L.bottom=H-150;
+  }else{
+    const R=Math.max(330,Math.min(W*.32,H*.68,600));const fs=Math.max(13,Math.min(17,R/30));
+    L={R,fs,cw:R*.74,rs:fs*1.12,cs:fs*1.06,S:Math.max(W*.98,R*1.6),pr:fs*1.9,gustR:R*.45};
+    L.ey=top+R*.62;L.bottom=H+L.fs;
+  }
+  L.cols=Math.floor(L.cw/L.cs);L.cw=L.cols*L.cs;
+  L.rows=Math.max(8,Math.ceil((L.bottom-L.ey)/L.rs));
+  glyphCache=new Map();
+  curtains.length=0;for(let i=0;i<NS;i++)curtains.push(buildCurtain(i));
+  drawThumbs();
+}
+
+// ============ 文字界面 ============
+const $=id=>document.getElementById(id);const meter=$('meter');
+function T(zh,en){return lang==='zh'?zh:en;}
+function fillUI(){
+  const s=SCENES[cur];
+  document.documentElement.lang=lang==='zh'?'zh-CN':'en';
+  $('lede').textContent=T(`${s.dyn} · ${s.form}`,`${s.dynEn} · ${s.formEn}`);
+  $('title').innerHTML=`${s.poet}<span class="dash"></span><span class="sub">${s.title}</span>`;
+  $('titleEn').textContent=lang==='en'?`${s.poetEn} — ${s.titleEn}`:'';
+  $('quote').textContent=T(s.note,s.noteEn);
+  const rows=[[T('诗人','Poet'),T(s.poet,s.poetEn+' '+s.poet)],[T('朝代','Dynasty'),T(s.dyn,s.dynEn)],[T('体裁','Form'),T(s.form,s.formEn)],
+    [T('屋顶','Roof'),T(s.roofZh,s.roofEn)],[T('诗文','Text'),s.lines.join('，')+'。']];
+  $('info').innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+  $('trans').textContent=s.en;$('trans').style.display=lang==='en'?'block':'none';
+  $('mA').textContent=`${T(s.poet,s.poetEn)} · ${T(s.dyn,s.dynEn)}`;$('mN').textContent=s.title;$('mE').textContent=lang==='en'?s.titleEn:s.lines[0]+'……';
+  $('mInfo').textContent=T('诗','i');
+  $('sheetBody').innerHTML=`<div style="font-family:var(--serif);font-size:22px;color:var(--ink);font-weight:700;margin-bottom:6px">${s.title}</div>
+    <div style="margin-bottom:14px">${T(s.poet,s.poetEn)} · ${T(s.dyn,s.dynEn)} · ${T(s.form,s.formEn)}</div>
+    <div style="font-family:var(--serif);font-size:17px;line-height:1.9;color:var(--ink);margin-bottom:14px">${s.lines.map(l=>l).join('<br>')}</div>
+    <div style="font-family:Georgia,serif;font-style:italic;font-size:13.5px;line-height:1.6;margin-bottom:14px">${s.en}</div>
+    <div style="margin-bottom:6px">${T('屋顶','Roof')}：${T(s.roofZh,s.roofEn)}</div><div style="margin-bottom:14px">${T(s.note,s.noteEn)}</div>
+    <div>x<sub>n+1</sub> = 2x<sub>n</sub> − x<sub>n−1</sub> + g·Δt² <span style="color:var(--red)">Verlet</span></div>`;
+  $('bLang').innerHTML=lang==='zh'?'<b>中</b><span> / EN</span>':'<span>中 / </span><b>EN</b>';
+  $('bTheme').innerHTML=night?`<span>${T('昼','Day')} / </span><b>${T('夜','Night')}</b>`:`<b>${T('昼','Day')}</b><span> / ${T('夜','Night')}</span>`;
+  const p=(cur+NS-1)%NS,n=(cur+1)%NS;
+  document.querySelector('#prev .nm').textContent=SCENES[p].title;document.querySelector('#next .nm').textContent=SCENES[n].title;
+  drawThumbs();
+  $('hint').textContent=mobile?T('手指划过帘子 · 轻点起风','Swipe through the curtain · tap for a gust'):T('鼠标拂过帘子 · 按住拖拽拨得更开 · 点击起风 · ← →换诗','Brush the curtain · drag to part it · click for a gust · ← → next poem');
+}
+function drawThumbs(){
+  if(!L.R)return;
+  [['prev',(cur+NS-1)%NS],['next',(cur+1)%NS]].forEach(([id,i])=>{
+    const c=document.querySelector('#'+id+' canvas'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);
+    g.save();g.translate(c.width/2,c.height*.92);drawRoof(g,SCENES[i].roof,c.width*.8);g.restore();
+  });
+}
+function go(d){cur=(cur+d+NS)%NS;fillUI();}
+
+// ============ 交互 ============
+function setPtr(e){ptr.x=e.clientX;ptr.y=e.clientY;}
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);
+  ptr.type=e.pointerType;setPtr(e);ptr.px=ptr.x;ptr.py=ptr.y;ptr.on=true;ptr.down=true;ptr.moved=0;ptr.t0=performance.now();ptr.sx=e.clientX;ptr.sy=e.clientY;
+  firstTouch();
+});
+cv.addEventListener('pointermove',e=>{
+  if(e.pointerType!=='mouse'&&!ptr.down)return;
+  if(!ptr.on){ptr.on=true;setPtr(e);ptr.px=ptr.x;ptr.py=ptr.y;}
+  ptr.type=e.pointerType;ptr.moved+=Math.hypot(e.clientX-ptr.x,e.clientY-ptr.y);setPtr(e);
+  if(ptr.moved>40)firstTouch();
+});
+function up(e){
+  if(ptr.down&&ptr.moved<8&&performance.now()-ptr.t0<350){gusts.push({x:ptr.x,y:ptr.y,life:.18,max:.18});}
+  // 手机：在帘子以外横扫也能换诗
+  if(ptr.down&&e&&ptr.type!=='mouse'){const dx=e.clientX-ptr.sx,dy=e.clientY-ptr.sy;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.5&&Math.abs(ptr.sx-W/2)>L.cw/2+10)go(dx<0?1:-1);}
+  ptr.down=false;if(ptr.type!=='mouse'){ptr.on=false;}
+}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){ptr.on=false;ptr.down=false;}});
+function firstTouch(){if(touched)return;touched=true;setTimeout(()=>$('hint').classList.add('off'),2500);}
+$('prev').onclick=()=>go(-1);$('next').onclick=()=>go(1);$('mPrev').onclick=()=>go(-1);$('mNext').onclick=()=>go(1);
+$('mInfo').onclick=()=>$('sheet').classList.add('on');$('sx').onclick=()=>$('sheet').classList.remove('on');
+// 底栏横扫换诗
+(()=>{let sx=0,sy=0;const mb=$('mbar');mb.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;});
+  mb.addEventListener('pointerup',e=>{const dx=e.clientX-sx;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(e.clientY-sy))go(dx<0?1:-1);});})();
+addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1);});
+$('bLang').onclick=()=>{lang=lang==='zh'?'en':'zh';try{localStorage.setItem('lotus-lang',lang);}catch(e){}fillUI();};
+$('bTheme').onclick=()=>{night=!night;document.body.classList.toggle('night',night);makePaper();const keep=curtains.map(c=>({x:c.x,y:c.y,px:c.px,py:c.py,a:c.active}));
+  layout();curtains.forEach((c,i)=>{if(keep[i].a){c.x=keep[i].x;c.y=keep[i].y;c.px=keep[i].px;c.py=keep[i].py;c.active=true;}});fillUI();};
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{layout();fillUI();},120);});
+
+// ============ 启动 ============
+// URL 参数（截图用）：?s=2 场景，?night=1
+const qs=new URLSearchParams(location.search);
+if(qs.get('s'))cur=(+qs.get('s'))%NS;if(qs.get('night')==='1'){night=true;document.body.classList.add('night');}
+if(qs.get('lang'))lang=qs.get('lang');
+cam=cur-.55;
+makePaper();makeGlow();layout();fillUI();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
