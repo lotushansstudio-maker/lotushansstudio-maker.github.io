@@ -534,7 +534,7 @@ async function loadRuntime(modelP) {
       const model = await modelP;
       const make = delegate => withTimeout(HandLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetBuffer: model.slice(), delegate }, runningMode: 'VIDEO', numHands: 2,
-        minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5
+        minHandDetectionConfidence: 0.4, minHandPresenceConfidence: 0.45, minTrackingConfidence: 0.45
       }), 90000, 'init');
       let lm;
       try { lm = await make('GPU'); } catch (e) { console.warn('GPU 不可用，改用 CPU', e); lm = await make('CPU'); }
@@ -618,29 +618,56 @@ function handStep(now) {
   if (!cam.lm || v.readyState < 2 || v.currentTime === cam.lastVT) return;
   cam.lastVT = v.currentTime;
   let res; try { res = cam.lm.detectForVideo(v, now); } catch (e) { return; }
-  const hs = (res.landmarks || []).map(l => {
-    const th = lm2s(l[4]), ix = lm2s(l[8]), size = dist(lm2s(l[0]), lm2s(l[9]));
-    const w = lm2s(l[0]), k = lm2s(l[9]);
-    return { th, ix, mid: { x: (th.x + ix.x) / 2, y: (th.y + ix.y) / 2 }, palm: { x: (w.x + k.x) / 2, y: (w.y + k.y) / 2 }, size, pr: dist(th, ix) / Math.max(size, 1) };
+  // 每只手：拇指尖、食指尖、中点（框的角）、掌心、手的大小、捏合程度、左右手、置信度
+  let hs = (res.landmarks || []).map((l, i) => {
+    const th = lm2s(l[4]), ix = lm2s(l[8]), w = lm2s(l[0]), k = lm2s(l[9]), size = dist(w, k);
+    const hd = res.handednesses && res.handednesses[i] && res.handednesses[i][0];
+    return { th, ix, mid: { x: (th.x + ix.x) / 2, y: (th.y + ix.y) / 2 }, palm: { x: (w.x + k.x) / 2, y: (w.y + k.y) / 2 },
+      size, pr: dist(th, ix) / Math.max(size, 1), side: hd ? hd.categoryName : (i ? 'B' : 'A'), score: hd ? hd.score : 1 };
   });
+  // 去重：模型偶尔把同一只手认成两只（两个结果几乎重合），只留置信度高的
+  if (hs.length >= 2 && dist(hs[0].palm, hs[1].palm) < Math.max(hs[0].size, hs[1].size) * .7) hs = [hs[0].score >= hs[1].score ? hs[0] : hs[1]];
+  // 同一侧出现两只时，按位置区分：画面左边的当一只、右边的当另一只
+  if (hs.length >= 2 && hs[0].side === hs[1].side) { hs.sort((a, b) => a.palm.x - b.palm.x); hs[0].side = 'L'; hs[1].side = 'R'; }
   cam.hands = hs;
   if (hs.length) lastInput = now;
   /* 手势：框跟着手走，拇指尖碰食指尖 → 定格（并自动换下一种滤镜）
-     双手：两只手的拇指食指中点撑成对角；单手：框以手掌为中心
+     双手：两只手的拇指食指中点撑成对角。一只手短暂丢失（< 0.9 秒）时，用它最后的位置撑住，框不会跳到另一只手上
+     只有一直只看到一只手（> 1.5 秒）才切到单手模式：框以掌心为中心
      碰之前那一刻的框才是想要的（碰的时候手指会移动），所以记住"张开时"最后的框 */
   if (!hs.length) {
-    if (liveBy === 'hand' && ++cam.lost > 6) { endLive(false); cam.openRect = null; }
+    if (liveBy === 'hand' && ++cam.lost > 8) { endLive(false); cam.openRect = null; cam.corners = {}; }
     return;
   }
   cam.lost = 0;
   if (liveBy === 'ptr') return;
-  if (liveBy !== 'hand') { if (liveBy === 'demo') endLive(false); startLive('hand'); cam.openRect = null; }
+  if (liveBy !== 'hand') { if (liveBy === 'demo') endLive(false); startLive('hand'); cam.openRect = null; cam.corners = {}; }
+  const C = cam.corners || (cam.corners = {});
+  // 把这一帧的手对到已有的角上：按距离配对（左右手标签会跳，不可靠）
+  const ks = Object.keys(C).filter(k => now - C[k].t < 900);
+  const put = (key, h) => {
+    const c = C[key];
+    if (c && now - c.t < 900) { c.p.x += (h.mid.x - c.p.x) * .6; c.p.y += (h.mid.y - c.p.y) * .6; c.t = now; }   // 平滑一点，去抖
+    else C[key] = { p: { ...h.mid }, t: now };
+  };
+  if (hs.length >= 2 && ks.length >= 2) {
+    const [a, b] = ks, d1 = dist(C[a].p, hs[0].mid) + dist(C[b].p, hs[1].mid), d2 = dist(C[a].p, hs[1].mid) + dist(C[b].p, hs[0].mid);
+    if (d1 <= d2) { put(a, hs[0]); put(b, hs[1]); } else { put(a, hs[1]); put(b, hs[0]); }
+  } else if (hs.length >= 2) { put('A', hs[0]); put('B', hs[1]); for (const k in C) if (k !== 'A' && k !== 'B') delete C[k]; }
+  else if (ks.length) { let best = ks[0]; for (const k of ks) if (dist(C[k].p, hs[0].mid) < dist(C[best].p, hs[0].mid)) best = k; put(best, hs[0]); }
+  else put('A', hs[0]);
+  for (const k in C) if (now - C[k].t > 900) delete C[k];          // 丢失太久的角才丢掉
+  const keys = Object.keys(C).sort((x, y) => C[y].t - C[x].t).slice(0, 2);   // 最近的两个角
+  if (keys.length >= 2) cam.twoT = now;
   let r;
-  if (hs.length >= 2) r = { x0: hs[0].mid.x, y0: hs[0].mid.y, x1: hs[1].mid.x, y1: hs[1].mid.y };
-  else {
+  if (keys.length >= 2) {
+    const a = C[keys[0]].p, b = C[keys[1]].p;
+    r = { x0: a.x, y0: a.y, x1: b.x, y1: b.y };
+  } else if (now - (cam.twoT || -1e9) > 1500) {
     const h = hs[0], m = Math.min(CW, CH), w = m * (CW > CH ? .62 : .78), hh = m * (CW > CH ? .46 : .9);
     r = { x0: h.palm.x - w / 2, y0: h.palm.y - hh / 2, x1: h.palm.x + w / 2, y1: h.palm.y + hh / 2 };
-  }
+  } else r = cam.openRect;                                           // 刚刚还是双手：先别动
+  if (!r) return;
   const touching = hs.some(h => h.pr < .2), allOpen = hs.every(h => h.pr > .36);
   if (allOpen || !cam.openRect) { cam.openRect = r; }
   live = cam.openRect;
