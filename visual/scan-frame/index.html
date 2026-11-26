@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>扫描取景 · Scan Frame</title>
+<meta name="description" content="Frame any part of the world with your hands and it turns into glowing scanlines. 用手撑出一个取景框，框里的世界变成发光的扫描线。">
+<meta property="og:title" content="扫描取景 · Scan Frame">
+<meta property="og:description" content="Frame it with your hands, freeze it into a glowing scanline sticker. 用手撑出取景框，松手定格成一张发光的扫描线贴纸。">
+<meta property="og:image" content="https://lotushansstudio-maker.github.io/visual/scan-frame/og.jpg">
+<meta property="og:url" content="https://lotushansstudio-maker.github.io/visual/scan-frame/">
+<style>
+  :root{ --ink:#e6f1ff; --dim:rgba(220,236,255,.55); --line:rgba(200,225,255,.16); --acc:#7cc8ff; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#02040a;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #gl{touch-action:none;cursor:crosshair}
+  #ov{pointer-events:none}
+  .title{position:fixed;left:max(20px,env(safe-area-inset-left));top:max(18px,env(safe-area-inset-top));pointer-events:none}
+  .title h1{font-family:"Songti SC","Noto Serif SC","STSong",Georgia,serif;font-weight:400;
+    font-size:clamp(24px,4vw,42px);letter-spacing:.18em;text-shadow:0 0 18px rgba(90,170,255,.35)}
+  .title p{margin-top:6px;font-size:11.5px;letter-spacing:.32em;color:var(--dim);text-transform:uppercase}
+  .ctrl{position:fixed;right:max(14px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top));
+    display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;max-width:60vw}
+  button{font:inherit;font-size:12px;letter-spacing:.06em;color:var(--ink);background:rgba(8,14,28,.5);
+    border:1px solid var(--line);border-radius:999px;padding:8px 13px;cursor:pointer;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .3s,border-color .3s,color .3s}
+  button:hover{background:rgba(30,50,90,.6)}
+  button.on{border-color:rgba(124,200,255,.8);color:#fff;box-shadow:0 0 14px rgba(80,170,255,.35) inset}
+  .bottom{position:fixed;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;
+    align-items:center;gap:10px;pointer-events:none}
+  .chips{display:flex;gap:6px;pointer-events:auto;max-width:94vw;overflow-x:auto;padding:2px 4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chips button{white-space:nowrap;padding:7px 12px}
+  .chips button .k{opacity:.45;margin-right:5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px}
+  .chips button.hero{font-weight:500}
+  .hint{font-size:12px;color:var(--dim);letter-spacing:.05em;text-align:center;width:min(94vw,680px);line-height:1.75;transition:opacity 1s}
+  .hint b{color:var(--ink);font-weight:500}
+  #toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:12px 18px;border-radius:12px;
+    background:rgba(8,14,28,.8);border:1px solid var(--line);font-size:13px;opacity:0;pointer-events:none;transition:opacity .4s;
+    text-align:center;max-width:86vw;line-height:1.6}
+  #file{display:none}
+  @media (max-width:600px){
+    .hint{font-size:11px} .title p{letter-spacing:.2em}
+    .title h1{font-size:24px} .title p{margin-top:3px}
+    .ctrl{top:calc(max(16px,env(safe-area-inset-top)) + 58px);right:auto;left:max(16px,env(safe-area-inset-left));
+      justify-content:flex-start;max-width:none;gap:5px} .ctrl button{padding:6px 10px;font-size:11px}
+    .hint .l2{display:none}
+    .chips button{padding:6px 10px;font-size:11.5px}
+  }
+  html[lang=en] .title h1{letter-spacing:.08em}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="ov"></canvas>
+<div class="title"><h1 id="tT">扫描取景</h1><p id="tS">Scan Frame</p></div>
+<div class="ctrl">
+  <button id="bCam">摄像头</button>
+  <button id="bPhoto">照片</button>
+  <button id="bSave">保存</button>
+  <button id="bClear">清空</button>
+  <button id="bLang">EN</button>
+</div>
+<div class="bottom">
+  <div class="chips" id="chips"></div>
+  <div class="hint" id="hint"></div>
+</div>
+<div id="toast"></div>
+<input type="file" id="file" accept="image/*">
+
+<script>
+'use strict';
+/* =========================================================
+   扫描取景 Scan Frame
+   灵感：Instagram @wxll.hx 的 TouchDesigner 手势取景框作品
+   - 用手（或鼠标 / 双指）撑出一个矩形取景框，框内画面实时变成发光的扫描线
+   - 扫描线：每条横线按画面亮度被"推高" y' = y + k·L(x,y)，亮处线条起伏、挤在一起，像等高线浮雕
+   - 松手 → 框内这一帧冻结成贴纸，留在画面上，越叠越像拼贴
+   - 全部滤镜在 GPU 着色器里算；不依赖外部库（只有摄像头手势用 MediaPipe）
+   ========================================================= */
+
+const glc = document.getElementById('gl'), ov = document.getElementById('ov');
+const gl = glc.getContext('webgl', { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+const ctx = ov.getContext('2d');
+const toastEl = document.getElementById('toast');
+
+/* ================= 双语（和主页共用 lotus-lang） ================= */
+const MODES = [
+  { zh: '扫描线', en: 'Scanline', tag: 'SCAN', f: "y′ = y + k·L(x,y)" },
+  { zh: '线描', en: 'Sketch', tag: 'SOBEL', f: '|∇I| = √(Gx² + Gy²)' },
+  { zh: '色阶', en: 'Poster', tag: 'POSTER', f: 'q = ⌊n·L⌋ / n' },
+  { zh: '四叉树', en: 'Quadtree', tag: 'QUAD', f: 'split ⇔ σ² > τ' },
+  { zh: '晒蓝', en: 'Cyanotype', tag: 'CYAN', f: 'L + d(x,y) > θ' },
+];
+const I18 = {
+  zh: { title: '扫描取景', sub: 'Scan Frame', cam: '摄像头', photo: '照片', scene: '场景', save: '保存', clear: '清空',
+    hint: '<b>拖出一个框</b>，框里变成扫描线 · <b>松手</b>定格成贴纸 · 手机<b>双指</b>撑框<br><span class="l2"><b>摄像头</b>：双手拇指食指撑框，放下手定格；或单手<b>捏住拖动</b> · 键盘 <b>1–5</b> 换滤镜 · <b>Z</b> 撤销</span>',
+    noGL: '你的浏览器不支持 WebGL，换个浏览器试试吧', camLoad: '加载手势识别', camOn: '举起双手，用拇指和食指撑出一个框；放下手就定格。单手：捏住拖动，松开定格',
+    camOff: '摄像头没打开 —— 用鼠标或手指拖框一样能玩', camFail: '手势识别没加载成功 —— 画面仍是摄像头，用鼠标或手指拖框', saved: '已保存图片', cleared: '已清空', undo: '撤销一张' },
+  en: { title: 'Scan Frame', sub: '扫描取景', cam: 'Camera', photo: 'Photo', scene: 'Scene', save: 'Save', clear: 'Clear',
+    hint: '<b>Drag a frame</b> to see it in scanlines · <b>release</b> to freeze a sticker · <b>two fingers</b> on phones<br><span class="l2"><b>Camera</b>: frame with both thumbs and index fingers, drop hands to freeze; or <b>pinch and drag</b> with one hand · keys <b>1–5</b> filters · <b>Z</b> undo</span>',
+    noGL: 'Your browser does not support WebGL. Please try another browser.', camLoad: 'Loading hand tracking', camOn: 'Raise both hands and frame with thumbs and index fingers; drop them to freeze. One hand: pinch, drag, release',
+    camOff: 'Camera unavailable. Drag with mouse or finger instead.', camFail: 'Hand tracking failed to load. Camera stays on; drag with mouse or finger.', saved: 'Image saved', cleared: 'Cleared', undo: 'Undone' },
+};
+let lang = new URLSearchParams(location.search).get('lang');
+try { lang = lang || localStorage.getItem('lotus-lang'); } catch (e) {}
+lang = lang || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+if (lang !== 'zh' && lang !== 'en') lang = 'zh';
+const tr = k => I18[lang][k];
+const chipsEl = document.getElementById('chips');
+MODES.forEach((m, i) => {
+  const b = document.createElement('button'); b.dataset.i = i; if (i === 0) b.classList.add('hero');
+  b.onclick = e => { e.stopPropagation(); setMode(i); };
+  chipsEl.appendChild(b);
+});
+function applyLang() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.getElementById('tT').textContent = tr('title');
+  document.getElementById('tS').textContent = tr('sub');
+  document.getElementById('bCam').textContent = tr('cam');
+  document.getElementById('bPhoto').textContent = src.kind === 'photo' ? tr('scene') : tr('photo');
+  document.getElementById('bSave').textContent = tr('save');
+  document.getElementById('bClear').textContent = tr('clear');
+  document.getElementById('bLang').textContent = lang === 'zh' ? 'EN' : '中';
+  document.getElementById('hint').innerHTML = tr('hint');
+  [...chipsEl.children].forEach((b, i) => { b.innerHTML = `<span class="k">${i + 1}</span>${MODES[i][lang]}`; b.classList.toggle('on', i === mode); });
+}
+function toast(msg, ms = 2600) {
+  toastEl.textContent = msg; toastEl.style.opacity = 1;
+  clearTimeout(toast.t); toast.t = setTimeout(() => toastEl.style.opacity = 0, ms);
+}
+
+/* ================= WebGL 基础 ================= */
+let mode = 0;
+const src = { kind: 'scene', tex: null, w: 1, h: 1, mirror: 0 };   // scene 程序化场景 / cam 摄像头 / photo 照片
+applyLang();
+if (!gl) { toast(tr('noGL'), 1e9); throw new Error('no webgl'); }
+
+const VS = `attribute vec2 p; varying vec2 v; void main(){ v=p*.5+.5; gl_Position=vec4(p,0.,1.); }`;
+// 矩形贴片：把纹理的一块（uTR）画到屏幕的一块（uR）
+const VS_RECT = `attribute vec2 p; uniform vec4 uR, uTR; varying vec2 vt, vl;
+void main(){ vec2 q=p*.5+.5; vl=q; vt=mix(uTR.xy,uTR.zw,q); gl_Position=vec4(mix(uR.xy,uR.zw,q)*2.-1.,0.,1.); }`;
+
+const COMMON = `precision highp float;
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+mat2 rot(float a){ float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }`;
+
+/* ---- 1. 程序化场景：几团光滑的"雕塑"在黑暗里缓慢转动（没有摄像头时当素材） ---- */
+const FS_SCENE = COMMON + `
+varying vec2 v; uniform vec2 uRes; uniform float uT; uniform vec2 uM;
+float smin(float a,float b,float k){ float h=clamp(.5+.5*(b-a)/k,0.,1.); return mix(b,a,h)-k*h*(1.-h); }
+float map(vec3 p){
+  p.xz*=rot(uT*.22+uM.x*.9); p.yz*=rot(.25+uM.y*.6);
+  float d=length(p*vec3(1.,1.12,1.))-.95;                       // 主体：略扁的球
+  for(int i=0;i<5;i++){                                          // 五个小球绕着主体公转，平滑融合
+    float fi=float(i), a=uT*(.35+fi*.07)+fi*1.2566;
+    vec3 c=vec3(cos(a)*1.35, sin(a*1.3+fi)*.75, sin(a)*1.1);
+    d=smin(d, length(p-c)-(.32+.06*sin(uT+fi)), .55);
+  }
+  vec3 q=p; q.xy*=rot(.6); q.yz*=rot(uT*.3);
+  float tor=length(vec2(length(q.xz)-1.75,q.y))-.07;           // 一圈细环
+  return min(d,tor);
+}
+vec3 nrm(vec3 p){ vec2 e=vec2(.002,-.002);
+  return normalize(e.xyy*map(p+e.xyy)+e.yyx*map(p+e.yyx)+e.yxy*map(p+e.yxy)+e.xxx*map(p+e.xxx)); }
+void main(){
+  vec2 uv=(v*uRes-.5*uRes)/min(uRes.x,uRes.y)*(uRes.x<uRes.y?1.15:1.);
+  vec3 ro=vec3(0.,0.,5.3), rd=normalize(vec3(uv*.95,-1.6));
+  float t=0., hit=0.;
+  for(int i=0;i<60;i++){ vec3 p=ro+rd*t; float d=map(p); if(d<.002){hit=1.;break;} t+=d*.9; if(t>10.) break; }
+  float L=0.;
+  if(hit>.5){
+    vec3 p=ro+rd*t, n=nrm(p);
+    vec3 l=normalize(vec3(-.6,.8,.6));
+    float dif=max(dot(n,l),0.), rim=pow(1.-max(dot(n,-rd),0.),2.5);
+    float ao=clamp(map(p+n*.25)/.25,0.,1.);
+    L=pow(dif,1.3)*.9*ao+rim*.5+.03;
+  }
+  L+=.05*exp(-dot(uv,uv)*2.);                                    // 背景一点点光
+  gl_FragColor=vec4(vec3(L),hit);
+}`;
+
+/* ---- 2. 摄像头 / 照片：铺满屏幕（cover），摄像头左右镜像 ---- */
+const FS_TEX = `precision highp float; varying vec2 v; uniform sampler2D uTex, uMask; uniform vec2 uScale; uniform float uMirror, uHasMask;
+void main(){ vec2 t=(v-.5)*uScale+.5; if(uMirror>.5) t.x=1.-t.x;
+  float m=uHasMask>.5?texture2D(uMask,t).r:1.;
+  gl_FragColor=vec4(texture2D(uTex,t).rgb,m); }`;
+
+/* ---- 3. 滤镜：五种，同一个着色器里按 uMode 分支 ---- */
+const FS_FX = COMMON + `
+varying vec2 v; uniform sampler2D uSrc, uPrev; uniform vec2 uRes, uSrcPx; uniform float uT, uMode, uDpr, uFb;
+float lum(vec2 uv){ return dot(texture2D(uSrc,uv).rgb, vec3(.299,.587,.114)); }
+float lumB(vec2 uv){ vec2 d=uSrcPx*1.5;
+  return (lum(uv)*4.+lum(uv+vec2(d.x,0.))+lum(uv-vec2(d.x,0.))+lum(uv+vec2(0.,d.y))+lum(uv-vec2(0.,d.y)))/8.; }
+vec3 ramp(float I){                       // 扫描线配色：深海蓝 → 冰蓝 → 近白
+  vec3 c=vec3(.006,.02,.06);
+  c=mix(c,vec3(.03,.16,.55),smoothstep(.02,.3,I));
+  c=mix(c,vec3(.25,.68,1.),smoothstep(.25,.7,I));
+  c=mix(c,vec3(.86,.97,1.),smoothstep(.85,1.3,I));
+  return c;
+}
+void main(){
+  vec2 px=v*uRes; vec3 col;
+  if(uMode<.5){
+    /* 扫描线：亮度把横线往上推（等高线浮雕），亮处再叠一层随时间流动的波纹 → 摩尔纹 */
+    float L=smoothstep(.03,.85,lumB(v));
+    float M=smoothstep(.15,.85,texture2D(uSrc,v).a);
+    L=mix(L*.13,.22+.9*L,M);                              // 人像遮罩：人发光，墙变暗
+    float per=3.2*uDpr;
+    float warp=sin(px.x/(13.*uDpr)+uT*2.6+L*8.)*L*.85;
+    float ph=px.y/per+L*7.+warp;
+    float ln=pow(.5+.5*cos(6.2831853*ph),2.2);
+    float I=L*(.1+1.02*ln)+L*L*.12;
+    float h=hash(floor(px/uDpr)+fract(uT*7.)*91.);
+    I+=step(.993-.012*L,h)*(.3+.7*L);                   // 暗处星点噪声
+    float beam=1.-fract(uT*.11);                          // 一道缓慢下扫的光带
+    I+=exp(-pow((v.y-beam)*uRes.y/(46.*uDpr),2.))*.22*(.25+L);
+    col=ramp(I);
+    vec3 pv=texture2D(uPrev,v).rgb;                        // 上一帧衰减后保留 → 手动起来有残影
+    col=max(col,pv*uFb-.003);
+  } else if(uMode<1.5){
+    /* 线描：Sobel 边缘 + 暗部斜线排线，白纸底 */
+    vec2 d=uSrcPx*1.3;
+    float tl=lum(v+vec2(-d.x,d.y)),t=lum(v+vec2(0.,d.y)),tr=lum(v+d);
+    float l=lum(v-vec2(d.x,0.)),r=lum(v+vec2(d.x,0.));
+    float bl=lum(v-d),b=lum(v-vec2(0.,d.y)),br=lum(v+vec2(d.x,-d.y));
+    float gx=-tl-2.*l-bl+tr+2.*r+br, gy=tl+2.*t+tr-bl-2.*b-br;
+    float e=smoothstep(.1,.45,length(vec2(gx,gy)));
+    float L=lumB(v);
+    float hatch=step(.62,fract((px.x+px.y)/(5.*uDpr)))*(1.-smoothstep(.12,.42,L))*.45;
+    vec3 paper=vec3(.93,.915,.875)+(hash(floor(px/uDpr))-.5)*.035;
+    col=mix(paper,vec3(.17,.16,.19),max(e,hatch));
+  } else if(uMode<2.5){
+    /* 色阶：亮度切成四档，黄色版错位两像素，像丝网印刷 */
+    float L=lumB(v), Ly=lumB(v+uSrcPx*vec2(2.,-1.));
+    col=vec3(.03,.25,.08);
+    col=mix(col,vec3(.05,.6,.16),step(.2,L));
+    col=mix(col,vec3(.96,.88,.14),step(.42,Ly));
+    col=mix(col,vec3(.97,.96,.92),step(.64,L));
+  } else if(uMode<3.5){
+    /* 四叉树：细节多（方差大）的格子继续一分为四，平的地方保持大格 */
+    float sz=112.*uDpr; vec2 c0=floor(px/sz)*sz; float m=0.; bool done=false;
+    for(int k=0;k<5;k++){
+      if(!done){
+        c0=floor(px/sz)*sz; float s=0.,s2=0.;
+        for(int a=0;a<3;a++) for(int b=0;b<3;b++){ float q=lum((c0+(vec2(a,b)+.5)/3.*sz)/uRes); s+=q; s2+=q*q; }
+        m=s/9.; float var=s2/9.-m*m;
+        if(var<.0022||k==4) done=true; else sz*=.5;
+      }
+    }
+    float g=floor(m*5.)/4.;
+    col=mix(vec3(.13,.15,.18),vec3(.93,.92,.88),g);
+    vec2 f=px-c0; float edge=step(min(f.x,f.y),.9*uDpr);
+    col=mix(col,vec3(.05,.06,.08),edge*.9);
+  } else {
+    /* 晒蓝：阈值 + 有序抖动，蓝白两色 */
+    float L=lumB(v);
+    vec2 q=mod(floor(px/uDpr),4.);
+    float bay=mod(q.x*8.+q.y*4.+mod(q.x+q.y,2.)*2.+q.y,16.)/16.;
+    float k=smoothstep(-.03,.03,L+(bay-.5)*.12-.44);
+    col=mix(vec3(.07,.27,.6),vec3(.95,.97,1.),k);
+  }
+  gl_FragColor=vec4(col,1.);
+}`;
+
+/* ---- 4. 背景：原画面压暗、去色、偏冷，留出"黑底"让发光的框跳出来 ---- */
+const FS_BG = COMMON + `varying vec2 v; uniform sampler2D uSrc; uniform vec2 uRes; uniform float uT, uDim;
+void main(){
+  float L=dot(texture2D(uSrc,v).rgb,vec3(.299,.587,.114));
+  vec3 c=vec3(.62,.74,1.)*pow(L,1.15)*uDim;
+  c+=(hash(v*uRes+fract(uT)*100.)-.5)*.018;
+  vec2 q=v-.5; c*=1.-dot(q,q)*1.1;
+  gl_FragColor=vec4(max(c,0.)+vec3(.004,.007,.016),1.);
+}`;
+
+/* ---- 5. 贴片（贴纸 / 实时框）：细白边 + 定格时一闪 ---- */
+const FS_RECT = `precision highp float; varying vec2 vt, vl; uniform sampler2D uTex; uniform vec2 uSize; uniform float uA, uBorder, uFlash, uDpr;
+void main(){
+  vec3 c=texture2D(uTex,vt).rgb;
+  vec2 d=min(vl,1.-vl)*uSize;
+  float b=1.-smoothstep(.0,1.1*uDpr,min(d.x,d.y));
+  c=mix(c,vec3(.88,.95,1.),b*uBorder);
+  c+=uFlash*(.55+.45*(1.-vl.y));
+  gl_FragColor=vec4(c,uA);
+}`;
+
+/* ---- 6. 辉光：取亮部 → 1/4 分辨率模糊 → 叠回去 ---- */
+const FS_BRIGHT = `precision highp float; varying vec2 v; uniform sampler2D uTex; uniform vec2 uPx;
+void main(){ vec3 c=(texture2D(uTex,v+uPx*vec2(-1,-1)).rgb+texture2D(uTex,v+uPx*vec2(1,-1)).rgb+texture2D(uTex,v+uPx*vec2(-1,1)).rgb+texture2D(uTex,v+uPx).rgb)*.25;
+  float l=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c*smoothstep(.32,.95,l),1.); }`;
+const FS_BLUR = `precision highp float; varying vec2 v; uniform sampler2D uTex; uniform vec2 uDir;
+void main(){ vec3 c=texture2D(uTex,v).rgb*.227;
+  c+=(texture2D(uTex,v+uDir*1.385).rgb+texture2D(uTex,v-uDir*1.385).rgb)*.316;
+  c+=(texture2D(uTex,v+uDir*3.231).rgb+texture2D(uTex,v-uDir*3.231).rgb)*.07;
+  gl_FragColor=vec4(c,1.); }`;
+const FS_FINAL = `precision highp float; varying vec2 v; uniform sampler2D uTex, uBloom; uniform float uK;
+void main(){ vec3 c=texture2D(uTex,v).rgb+texture2D(uBloom,v).rgb*uK; c=1.-exp(-c*1.08); gl_FragColor=vec4(pow(c,vec3(.97)),1.); }`;
+
+function compile(vs, fs) {
+  const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
+  const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs));
+  gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const a = gl.getActiveUniform(p, i); u[a.name] = gl.getUniformLocation(p, a.name); }
+  return { p, u };
+}
+const P = {
+  scene: compile(VS, FS_SCENE), tex: compile(VS, FS_TEX), fx: compile(VS, FS_FX), bg: compile(VS, FS_BG),
+  rect: compile(VS_RECT, FS_RECT), bright: compile(VS, FS_BRIGHT), blur: compile(VS, FS_BLUR), fin: compile(VS, FS_FINAL),
+};
+const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+function mkTex(w, h) {
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function mkFB(w, h) { const tex = mkTex(w, h), fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  return { tex, fb, w, h }; }
+function freeFB(o) { if (o) { gl.deleteTexture(o.tex); gl.deleteFramebuffer(o.fb); } }
+function use(prog) { gl.useProgram(prog.p); return prog.u; }
+function bindT(unit, tex, loc) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(loc, unit); }
+function target(o) { gl.bindFramebuffer(gl.FRAMEBUFFER, o ? o.fb : null); gl.viewport(0, 0, o ? o.w : W, o ? o.h : H); }
+const draw = () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+/* ================= 尺寸 ================= */
+let W = 1, H = 1, CW = 1, CH = 1, DPR = 1, srcFB, fxA, fxB, comp, bl1, bl2, fxCur = null;
+function resize() {
+  CW = innerWidth; CH = innerHeight;
+  DPR = Math.min(devicePixelRatio || 1, 1.5);
+  if (CW * CH * DPR * DPR > 2.6e6) DPR = Math.sqrt(2.6e6 / (CW * CH));
+  W = Math.round(CW * DPR); H = Math.round(CH * DPR);
+  glc.width = W; glc.height = H; ov.width = W; ov.height = H;
+  [srcFB, fxA, fxB, comp, bl1, bl2].forEach(freeFB);
+  const s = Math.min(1, 760 / Math.max(W, H));                     // 素材只要一半左右分辨率（反正会被模糊）
+  srcFB = mkFB(Math.max(2, Math.round(W * s)), Math.max(2, Math.round(H * s)));
+  fxA = mkFB(W, H); fxB = mkFB(W, H); comp = mkFB(W, H);
+  bl1 = mkFB(Math.max(2, W >> 2), Math.max(2, H >> 2)); bl2 = mkFB(Math.max(2, W >> 2), Math.max(2, H >> 2));
+  fxCur = fxA; clearFx();
+}
+function clearFx() { [fxA, fxB].forEach(o => { target(o); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }); }
+addEventListener('resize', resize); resize();
+
+/* ================= 状态 ================= */
+let live = null;          // 当前取景框 {x0,y0,x1,y1}（CSS 像素，左上原点）
+let liveShown = null;     // 平滑后的显示位置
+let liveA = 0, liveSince = 0, liveBy = '';
+const stickers = [];      // 定格的贴纸
+let lastInput = -1e9, demoT = 0, stickerNo = 0;
+const MAX_ST = 14;
+
+function norm(r) { return { x0: Math.min(r.x0, r.x1), y0: Math.min(r.y0, r.y1), x1: Math.max(r.x0, r.x1), y1: Math.max(r.y0, r.y1) }; }
+function startLive(by) { if (!live || liveBy !== by) { clearFx(); liveSince = performance.now(); liveShown = null; } liveBy = by; }
+function freeze() {
+  if (!liveShown) return;
+  const r = norm(liveShown);
+  const w = r.x1 - r.x0, h = r.y1 - r.y0;
+  if (w < 28 || h < 28) return;
+  const pw = Math.round(w * DPR), ph = Math.round(h * DPR);
+  const o = mkFB(pw, ph);
+  const cur = fxCur;                         // 当前滤镜画面里这一块拷贝下来
+  target(o); gl.disable(gl.BLEND);
+  const u = use(P.rect);
+  gl.uniform4f(u.uR, 0, 0, 1, 1);
+  gl.uniform4f(u.uTR, r.x0 / CW, 1 - r.y1 / CH, r.x1 / CW, 1 - r.y0 / CH);
+  gl.uniform2f(u.uSize, pw, ph); gl.uniform1f(u.uA, 1); gl.uniform1f(u.uBorder, 0); gl.uniform1f(u.uFlash, 0); gl.uniform1f(u.uDpr, DPR);
+  bindT(0, cur.tex, u.uTex); draw();
+  stickers.push({ ...o, r, mode, t0: performance.now(), no: ++stickerNo });
+  while (stickers.length > MAX_ST) freeFB(stickers.shift());
+}
+function endLive(doFreeze) { if (live && doFreeze) freeze(); live = null; liveBy = ''; }
+
+function setMode(i) {
+  mode = (i + MODES.length) % MODES.length; clearFx();
+  [...chipsEl.children].forEach((b, k) => b.classList.toggle('on', k === mode));
+}
+
+/* ================= 鼠标 / 触摸：单指拖框，双指撑框 ================= */
+const ptrs = new Map(); let anchor = null, twoMode = false, ignoreRest = false;
+glc.addEventListener('pointerdown', e => {
+  glc.setPointerCapture && glc.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); lastInput = performance.now();
+  if (liveBy === 'demo') endLive(false);
+  if (ignoreRest) return;
+  if (ptrs.size === 1) { anchor = { x: e.clientX, y: e.clientY }; twoMode = false; startLive('ptr'); live = { x0: anchor.x, y0: anchor.y, x1: anchor.x, y1: anchor.y }; }
+  else if (ptrs.size === 2) { twoMode = true; updTwo(); }
+});
+function updTwo() { const [a, b] = [...ptrs.values()]; live = { x0: a.x, y0: a.y, x1: b.x, y1: b.y }; }
+glc.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) { ptrHover = { x: e.clientX, y: e.clientY }; return; }
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); lastInput = performance.now();
+  if (ignoreRest || liveBy !== 'ptr') return;
+  if (twoMode && ptrs.size >= 2) updTwo();
+  else if (!twoMode && anchor) live = { x0: anchor.x, y0: anchor.y, x1: e.clientX, y1: e.clientY };
+});
+let ptrHover = null;
+function ptrUp(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId); lastInput = performance.now();
+  if (liveBy === 'ptr' && !ignoreRest) { endLive(true); if (ptrs.size) ignoreRest = true; }
+  if (!ptrs.size) { ignoreRest = false; anchor = null; twoMode = false; }
+}
+glc.addEventListener('pointerup', ptrUp); glc.addEventListener('pointercancel', ptrUp);
+glc.addEventListener('pointerleave', () => { ptrHover = null; });
+
+/* 场景跟着指针轻轻转 */
+let mx = 0, my = 0, tmx = 0, tmy = 0;
+addEventListener('pointermove', e => { tmx = e.clientX / CW - .5; tmy = e.clientY / CH - .5; });
+
+/* ================= 键盘 ================= */
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k >= '1' && k <= '5') setMode(+k - 1);
+  else if (k === 'c') toggleCam();
+  else if (k === 'x') clearAll();
+  else if (k === 'z') undo();
+  else if (k === 's') wantSave = true;
+});
+function clearAll() { stickers.splice(0).forEach(freeFB); stickerNo = 0; toast(tr('cleared'), 900); }
+function undo() { const s = stickers.pop(); if (s) { freeFB(s); toast(tr('undo'), 800); } }
+document.getElementById('bClear').onclick = e => { e.stopPropagation(); clearAll(); };
+document.getElementById('bSave').onclick = e => { e.stopPropagation(); wantSave = true; };
+document.getElementById('bLang').onclick = e => {
+  e.stopPropagation(); lang = lang === 'zh' ? 'en' : 'zh';
+  try { localStorage.setItem('lotus-lang', lang); } catch (er) {}
+  applyLang();
+};
+
+/* ================= 照片 ================= */
+const fileEl = document.getElementById('file');
+document.getElementById('bPhoto').onclick = e => {
+  e.stopPropagation();
+  if (src.kind === 'photo') { useScene(); return; }
+  fileEl.click();
+};
+fileEl.onchange = () => {
+  const f = fileEl.files && fileEl.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    stopCam();
+    const s = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    if (!src.tex) src.tex = mkTex(2, 2);
+    gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    Object.assign(src, { kind: 'photo', w: c.width, h: c.height, mirror: 0 });
+    URL.revokeObjectURL(img.src); fileEl.value = ''; applyLang();
+  };
+  img.src = URL.createObjectURL(f);
+};
+function useScene() { stopCam(); src.kind = 'scene'; applyLang(); }
+
+/* ================= 摄像头 + MediaPipe 手势（双手） =================
+   运行库：npmmirror 镜像优先，失败换同站的圣诞树仓库 mp/；模型下载后校验 SHA-256 */
+const MP_LOCAL = new URL('/ascii-xmas-tree/mp/', location.href).href;
+const RT_SOURCES = [['npmmirror', 'https://registry.npmmirror.com/@mediapipe/tasks-vision/0.10.14/files/'], ['GitHub', MP_LOCAL]];
+const MODEL_SHA = 'fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1';
+const MODEL_SOURCES = [
+  ['mirror A', 'https://cdn.jsdmirror.com/npm/ptmaker-vision-models@1.0.0/hand_landmarker.task'],
+  ['mirror B', 'https://jsd.onmicrosoft.cn/npm/ptmaker-vision-models@1.0.0/hand_landmarker.task'],
+  ['GitHub', MP_LOCAL + 'hand_landmarker.task'],
+];
+/* 人像分割（selfie_segmenter，和 Google 官方文件一致，约 250KB）：让人发光、背景变暗 */
+const SEG_SHA = '191ac9529ae506ee0beefa6b2c945a172dab9d07d1e802a290a4e4038226658b';
+const SEG_SOURCES = [
+  ['npmmirror', 'https://registry.npmmirror.com/@vpalmisano/virtual-background/1.0.14/files/dist/mediapipe/models/selfie_segmenter.tflite'],
+  ['GitHub', new URL('selfie_segmenter.tflite', location.href).href],
+];
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timeout')), ms))]);
+function probe(url, init) {
+  const c = new AbortController(), id = setTimeout(() => c.abort(), 7000);
+  return fetch(url, { ...init, signal: c.signal }).then(r => { clearTimeout(id); if (!r.ok) throw 0; r.body && r.body.cancel(); });
+}
+function fastestFirst(list, urlOf, init) {     // 谁先响应排第一
+  return new Promise(res => {
+    let fails = 0, done = false;
+    list.forEach(item => probe(urlOf(item), init).then(() => {
+      if (!done) { done = true; res([item, ...list.filter(x => x !== item)]); }
+    }).catch(() => { if (++fails === list.length && !done) res(list); }));
+  });
+}
+async function download(url, onP) {             // 带进度；15 秒没有新数据就放弃
+  const c = new AbortController(); let timer;
+  const kick = () => { clearTimeout(timer); timer = setTimeout(() => c.abort(), 15000); };
+  kick();
+  try {
+    const r = await fetch(url, { signal: c.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const total = +r.headers.get('content-length') || 7819105;
+    const reader = r.body.getReader(), chunks = []; let got = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break;
+      chunks.push(value); got += value.length; kick(); onP(Math.min(99, got / total * 100 | 0)); }
+    const out = new Uint8Array(got); let o = 0; for (const ch of chunks) { out.set(ch, o); o += ch.length; }
+    return out;
+  } finally { clearTimeout(timer); }
+}
+async function loadModel(onP, sources = MODEL_SOURCES, sha = MODEL_SHA) {
+  const order = await fastestFirst(sources, s => s[1], { headers: { Range: 'bytes=0-1023' } });
+  let err;
+  for (const [name, url] of order) {
+    try {
+      const buf = await download(url, onP);
+      if (crypto.subtle) {
+        const hex = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map(b => b.toString(16).padStart(2, '0')).join('');
+        if (hex !== sha) throw new Error('checksum');
+      }
+      return buf;
+    } catch (e) { err = e; console.warn('model source failed', name, e); }
+  }
+  throw err || new Error('model');
+}
+async function loadRuntime(modelP) {
+  const order = await fastestFirst(RT_SOURCES, s => s[1] + 'wasm/vision_wasm_internal.js');
+  let err;
+  for (const [name, base] of order) {
+    try {
+      const { FilesetResolver, HandLandmarker, ImageSegmenter } = await withTimeout(import(base + 'vision_bundle.mjs'), 25000, 'runtime');
+      const fileset = await FilesetResolver.forVisionTasks(base + 'wasm');
+      const model = await modelP;
+      const make = delegate => withTimeout(HandLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetBuffer: model.slice(), delegate }, runningMode: 'VIDEO', numHands: 2,
+        minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5
+      }), 90000, 'init');
+      let lm;
+      try { lm = await make('GPU'); } catch (e) { console.warn('GPU 不可用，改用 CPU', e); lm = await make('CPU'); }
+      // 人像分割：失败也不影响手势
+      loadModel(() => {}, SEG_SOURCES, SEG_SHA).then(async buf => {
+        const mk = delegate => ImageSegmenter.createFromOptions(fileset, { baseOptions: { modelAssetBuffer: buf, delegate },
+          runningMode: 'VIDEO', outputConfidenceMasks: true, outputCategoryMask: false });
+        try { cam.seg = await mk('GPU'); } catch (e) { cam.seg = await mk('CPU'); }
+      }).catch(e => console.warn('segmenter unavailable', e));
+      return lm;
+    } catch (e) { err = e; console.warn('runtime source failed', name, e); }
+  }
+  throw err || new Error('runtime');
+}
+
+const cam = { on: false, stream: null, video: document.createElement('video'), lm: null, loading: false, lastVT: -1,
+  hands: [], pinch: false, pinchA: null, twoSince: 0, lost: 0, seg: null, segVT: -1, hasMask: false };
+cam.video.muted = true; cam.video.playsInline = true;
+const bCam = document.getElementById('bCam');
+bCam.onclick = e => { e.stopPropagation(); toggleCam(); };
+function stopCam() {
+  if (cam.stream) cam.stream.getTracks().forEach(t => t.stop());
+  cam.stream = null; cam.on = false; cam.hands = []; bCam.classList.remove('on');
+  if (liveBy === 'hand') endLive(false);
+  if (src.kind === 'cam') src.kind = 'scene';
+}
+async function toggleCam() {
+  if (cam.loading) return;
+  if (cam.on) { stopCam(); applyLang(); return; }
+  cam.loading = true;
+  try {
+    cam.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } }, audio: false });
+    cam.video.srcObject = cam.stream; await cam.video.play();
+  } catch (e) { console.warn(e); cam.loading = false; toast(tr('camOff')); return; }
+  cam.on = true; bCam.classList.add('on');
+  if (!src.tex) src.tex = mkTex(2, 2);
+  Object.assign(src, { kind: 'cam', mirror: 1 }); applyLang();
+  if (!cam.lm) {
+    toast(tr('camLoad') + '…', 1e9);
+    try {
+      const modelP = loadModel(p => toast(`${tr('camLoad')} ${p}%`, 1e9)); modelP.catch(() => {});
+      cam.lm = await loadRuntime(modelP);
+    } catch (e) { console.warn(e); cam.loading = false; toast(tr('camFail'), 4000); return; }
+  }
+  cam.loading = false; toast(tr('camOn'), 4200);
+}
+
+/* 人像分割：视频缩小到 256 宽再算，遮罩当成一张灰度纹理 */
+const segCv = document.createElement('canvas'), segCtx = segCv.getContext('2d', { willReadFrequently: false });
+let maskTex = null, maskBuf = null;
+function segStep(now) {
+  const v = cam.video;
+  if (!cam.seg || v.readyState < 2 || v.currentTime === cam.segVT) return;
+  cam.segVT = v.currentTime;
+  const w = 256, h = Math.max(2, Math.round(256 * (v.videoHeight || 480) / (v.videoWidth || 640)));
+  if (segCv.width !== w || segCv.height !== h) { segCv.width = w; segCv.height = h; }
+  segCtx.drawImage(v, 0, 0, w, h);
+  let r; try { r = cam.seg.segmentForVideo(segCv, now); } catch (e) { return; }
+  const mk = r && r.confidenceMasks && r.confidenceMasks[0];
+  if (!mk) return;
+  const f = mk.getAsFloat32Array(), mw = mk.width, mh = mk.height;
+  if (!maskBuf || maskBuf.length !== mw * mh) maskBuf = new Uint8Array(mw * mh);
+  for (let i = 0; i < f.length; i++) maskBuf[i] = f[i] * 255;
+  r.confidenceMasks.forEach(m => m.close && m.close());
+  if (!maskTex) maskTex = mkTex(2, 2);
+  gl.bindTexture(gl.TEXTURE_2D, maskTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, mw, mh, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, maskBuf);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  cam.hasMask = true;
+}
+
+/* 视频坐标 → 屏幕坐标（和着色器里的 cover + 镜像一致） */
+function coverScale(w, h) { const as = CW / CH, av = w / h; return as > av ? [1, av / as] : [as / av, 1]; }
+function lm2s(p) {
+  const [sx, sy] = coverScale(src.w, src.h);
+  return { x: (((1 - p.x) - .5) / sx + .5) * CW, y: ((p.y - .5) / sy + .5) * CH };
+}
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function handStep(now) {
+  const v = cam.video;
+  if (!cam.lm || v.readyState < 2 || v.currentTime === cam.lastVT) return;
+  cam.lastVT = v.currentTime;
+  let res; try { res = cam.lm.detectForVideo(v, now); } catch (e) { return; }
+  const hs = (res.landmarks || []).map(l => {
+    const th = lm2s(l[4]), ix = lm2s(l[8]), size = dist(lm2s(l[0]), lm2s(l[9]));
+    return { th, ix, mid: { x: (th.x + ix.x) / 2, y: (th.y + ix.y) / 2 }, size, pr: dist(th, ix) / Math.max(size, 1) };
+  });
+  cam.hands = hs;
+  if (hs.length) lastInput = now;
+  if (hs.length >= 2) {
+    // 双手：各取拇指尖和食指尖的中点当一个角
+    cam.lost = 0; cam.pinch = false;
+    if (liveBy !== 'hand') { if (liveBy === 'ptr') return; if (liveBy === 'demo') endLive(false); startLive('hand'); cam.twoSince = now; }
+    live = { x0: hs[0].mid.x, y0: hs[0].mid.y, x1: hs[1].mid.x, y1: hs[1].mid.y };
+    cam.mode = 'two';
+  } else if (hs.length === 1) {
+    const h = hs[0];
+    if (cam.mode === 'two' && liveBy === 'hand') {       // 一只手放下 → 定格
+      if (now - cam.twoSince > 500) endLive(true); else endLive(false);
+      cam.mode = ''; return;
+    }
+    // 单手：捏住拖动，松开定格（带迟滞，防抖）
+    if (!cam.pinch && h.pr < .3) { cam.pinch = true; cam.pinchA = { ...h.mid }; if (liveBy === 'demo') endLive(false); if (liveBy !== 'ptr') startLive('hand'); cam.mode = 'one'; }
+    else if (cam.pinch && h.pr > .45) { cam.pinch = false; if (liveBy === 'hand') endLive(true); cam.mode = ''; }
+    if (cam.pinch && liveBy === 'hand') live = { x0: cam.pinchA.x, y0: cam.pinchA.y, x1: h.mid.x, y1: h.mid.y };
+  } else if (liveBy === 'hand') {
+    if (++cam.lost > 4) { endLive(cam.mode === 'two' ? now - cam.twoSince > 500 : true); cam.mode = ''; cam.pinch = false; }
+  }
+}
+
+/* ================= 无人操作时：一个取景框自己慢慢游走（演示） ================= */
+function demoStep(now, dt) {
+  const idle = now - lastInput > 5000 && !ptrs.size && !(cam.on && cam.hands.length);
+  if (!idle) { if (liveBy === 'demo') endLive(false); return; }
+  if (liveBy && liveBy !== 'demo') return;
+  if (liveBy !== 'demo') { startLive('demo'); demoT = 0; }
+  demoT += dt;
+  const t = demoT * .00022, m = Math.min(CW, CH);
+  const cx = CW * (.5 + .2 * Math.sin(t * 1.3)), cy = CH * (.5 + .12 * Math.sin(t * 1.9 + 1));
+  const w = m * (.5 + .1 * Math.sin(t * 2.1)) * (CW > CH ? 1.25 : .95), h = m * (.36 + .07 * Math.cos(t * 1.7)) * (CW > CH ? 1 : 1.35);
+  live = { x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 };
+}
+
+/* ================= 渲染 ================= */
+let wantSave = false, last = performance.now(), T0 = performance.now();
+function renderSource(t) {
+  target(srcFB); gl.disable(gl.BLEND);
+  if ((src.kind === 'cam' && cam.on && cam.video.readyState >= 2) || src.kind === 'photo') {
+    if (src.kind === 'cam') {
+      const v = cam.video; src.w = v.videoWidth || 640; src.h = v.videoHeight || 480;
+      gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    }
+    const u = use(P.tex), [sx, sy] = coverScale(src.w, src.h);
+    gl.uniform2f(u.uScale, sx, sy); gl.uniform1f(u.uMirror, src.mirror && src.kind === 'cam' ? 1 : 0);
+    const hm = src.kind === 'cam' && cam.hasMask && maskTex;
+    gl.uniform1f(u.uHasMask, hm ? 1 : 0);
+    bindT(0, src.tex, u.uTex); bindT(1, hm ? maskTex : src.tex, u.uMask); draw();
+  } else {
+    const u = use(P.scene);
+    gl.uniform2f(u.uRes, srcFB.w, srcFB.h); gl.uniform1f(u.uT, t); gl.uniform2f(u.uM, mx, my); draw();
+  }
+}
+function frame(now) {
+  const dt = Math.min(64, now - last); last = now;
+  const t = (now - T0) / 1000;
+  mx += (tmx - mx) * .03; my += (tmy - my) * .03;
+  if (cam.on) { handStep(now); segStep(now); }
+  demoStep(now, dt);
+
+  // 显示用的框：手势和演示做平滑，鼠标直接跟手
+  if (live) {
+    const r = norm(live);
+    if (!liveShown) liveShown = { ...r };
+    const k = liveBy === 'ptr' ? 1 : liveBy === 'hand' ? .45 : .2;
+    for (const key of ['x0', 'y0', 'x1', 'y1']) liveShown[key] += (r[key] - liveShown[key]) * k;
+    liveA = Math.min(1, liveA + dt / 250);
+  } else { liveA = 0; liveShown = null; }
+
+  renderSource(t);
+
+  // 滤镜（只算框附近，省电）
+  const R = liveShown;
+  const has = R && (R.x1 - R.x0) > 2 && (R.y1 - R.y0) > 2;
+  if (has) {
+    const nxt = fxCur === fxA ? fxB : fxA;
+    target(nxt); gl.enable(gl.SCISSOR_TEST);
+    const pad = 4;
+    const sx0 = Math.max(0, Math.floor(R.x0 * DPR) - pad), sy0 = Math.max(0, Math.floor((CH - R.y1) * DPR) - pad);
+    gl.scissor(sx0, sy0, Math.min(W, Math.ceil((R.x1 - R.x0) * DPR) + pad * 2), Math.min(H, Math.ceil((R.y1 - R.y0) * DPR) + pad * 2));
+    const u = use(P.fx);
+    bindT(0, srcFB.tex, u.uSrc); bindT(1, fxCur.tex, u.uPrev);
+    gl.uniform2f(u.uRes, W, H); gl.uniform2f(u.uSrcPx, 1 / srcFB.w, 1 / srcFB.h);
+    gl.uniform1f(u.uT, t); gl.uniform1f(u.uMode, mode); gl.uniform1f(u.uDpr, DPR);
+    gl.uniform1f(u.uFb, src.kind === 'photo' ? .0 : .86);
+    draw(); gl.disable(gl.SCISSOR_TEST); fxCur = nxt;
+  }
+
+  // 合成：暗背景 → 贴纸 → 实时框
+  target(comp); gl.disable(gl.BLEND);
+  { const u = use(P.bg); bindT(0, srcFB.tex, u.uSrc); gl.uniform2f(u.uRes, W, H); gl.uniform1f(u.uT, t);
+    gl.uniform1f(u.uDim, src.kind === 'cam' ? .42 : .3); draw(); }
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  const ur = use(P.rect); gl.uniform1f(ur.uDpr, DPR);
+  for (const s of stickers) {
+    const age = (now - s.t0) / 1000, e = Math.min(1, age / .45), sc = 1 + .035 * (1 - e) * (1 - e);
+    const cx = (s.r.x0 + s.r.x1) / 2, cy = (s.r.y0 + s.r.y1) / 2, hw = (s.r.x1 - s.r.x0) / 2 * sc, hh = (s.r.y1 - s.r.y0) / 2 * sc;
+    gl.uniform4f(ur.uR, (cx - hw) / CW, 1 - (cy + hh) / CH, (cx + hw) / CW, 1 - (cy - hh) / CH);
+    gl.uniform4f(ur.uTR, 0, 0, 1, 1); gl.uniform2f(ur.uSize, s.w, s.h);
+    gl.uniform1f(ur.uA, 1); gl.uniform1f(ur.uBorder, .55); gl.uniform1f(ur.uFlash, Math.max(0, 1 - age / .5) ** 2 * .8);
+    bindT(0, s.tex, ur.uTex); draw();
+  }
+  if (has) {
+    gl.uniform4f(ur.uR, R.x0 / CW, 1 - R.y1 / CH, R.x1 / CW, 1 - R.y0 / CH);
+    gl.uniform4f(ur.uTR, R.x0 / CW, 1 - R.y1 / CH, R.x1 / CW, 1 - R.y0 / CH);
+    gl.uniform2f(ur.uSize, (R.x1 - R.x0) * DPR, (R.y1 - R.y0) * DPR);
+    gl.uniform1f(ur.uA, liveA); gl.uniform1f(ur.uBorder, .9); gl.uniform1f(ur.uFlash, 0);
+    bindT(0, fxCur.tex, ur.uTex); draw();
+  }
+  gl.disable(gl.BLEND);
+
+  // 辉光
+  target(bl1); { const u = use(P.bright); gl.uniform2f(u.uPx, 1 / W, 1 / H); bindT(0, comp.tex, u.uTex); draw(); }
+  for (let i = 0; i < 2; i++) {
+    target(bl2); { const u = use(P.blur); gl.uniform2f(u.uDir, 1.6 / bl1.w, 0); bindT(0, bl1.tex, u.uTex); draw(); }
+    target(bl1); { const u = use(P.blur); gl.uniform2f(u.uDir, 0, 1.6 / bl1.h); bindT(0, bl2.tex, u.uTex); draw(); }
+  }
+  target(null); { const u = use(P.fin); bindT(0, comp.tex, u.uTex); bindT(1, bl1.tex, u.uBloom); gl.uniform1f(u.uK, .95); draw(); }
+
+  drawOverlay(now, t);
+  if (wantSave) { wantSave = false; save(); }
+  requestAnimationFrame(frame);
+}
+
+/* ================= 叠加层：标尺、角标、公式、手指点（2D 画布） ================= */
+const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+function drawOverlay(now, t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.textBaseline = 'alphabetic';
+  // 贴纸编号
+  ctx.font = `10px ${MONO}`;
+  for (const s of stickers) {
+    const age = now - s.t0, a = Math.min(1, age / 600) * Math.max(0, Math.min(1, (5200 - age) / 1200));   // 编号几秒后淡出，免得盖在新贴纸上
+    if (a <= 0) continue;
+    ctx.fillStyle = `rgba(190,225,255,${.55 * a})`;
+    const y = s.r.y1 + 13 < CH - 4 ? s.r.y1 + 13 : s.r.y1 - 6;
+    ctx.fillText(`No.${String(s.no).padStart(2, '0')} · ${MODES[s.mode].tag} · ${Math.round(s.r.x1 - s.r.x0)}×${Math.round(s.r.y1 - s.r.y0)}`, s.r.x0, y);
+  }
+  const R = liveShown;
+  if (R && (R.x1 - R.x0) > 2) {
+    const a = liveA, w = R.x1 - R.x0, h = R.y1 - R.y0;
+    ctx.strokeStyle = `rgba(215,238,255,${.95 * a})`; ctx.lineWidth = 2;
+    const L = Math.min(18, w / 3, h / 3);
+    ctx.beginPath();     // 四个角的直角括号
+    [[R.x0, R.y0, 1, 1], [R.x1, R.y0, -1, 1], [R.x0, R.y1, 1, -1], [R.x1, R.y1, -1, -1]].forEach(([x, y, sx, sy]) => {
+      ctx.moveTo(x - 4 * sx, y + L * sy); ctx.lineTo(x - 4 * sx, y - 4 * sy); ctx.lineTo(x + L * sx, y - 4 * sy);
+    });
+    ctx.stroke();
+    // 左侧和上方的刻度尺（像原作外侧的网格刻度）
+    ctx.lineWidth = 1; ctx.strokeStyle = `rgba(170,210,255,${.45 * a})`; ctx.beginPath();
+    for (let y = 0; y <= h; y += 8) { const big = Math.round(y) % 40 === 0; ctx.moveTo(R.x0 - 9, R.y0 + y); ctx.lineTo(R.x0 - 9 - (big ? 10 : 4), R.y0 + y); }
+    for (let x = 0; x <= w; x += 8) { const big = Math.round(x) % 40 === 0; ctx.moveTo(R.x0 + x, R.y0 - 9); ctx.lineTo(R.x0 + x, R.y0 - 9 - (big ? 8 : 3)); }
+    ctx.stroke();
+    // 公式 + 尺寸
+    ctx.fillStyle = `rgba(200,232,255,${.9 * a})`; ctx.font = `11px ${MONO}`;
+    const m = MODES[mode];
+    const top = R.y0 - 24 > 70 ? R.y0 - 24 : R.y1 + 18;
+    ctx.fillText(`${m.tag}  ${m.f}`, R.x0, top);
+    const dim = `${Math.round(w)} × ${Math.round(h)}`;
+    ctx.fillStyle = `rgba(200,232,255,${.6 * a})`;
+    if (ctx.measureText(`${m.tag}  ${m.f}`).width + ctx.measureText(dim).width + 16 < w) ctx.fillText(dim, R.x1 - ctx.measureText(dim).width, top);
+    if (mode === 0) {
+      ctx.fillText(`k=7.0  λ=${(3.2).toFixed(1)}px  t=${t.toFixed(1)}s`, R.x0, top === R.y1 + 18 ? top + 14 : top + 0 - 14);
+    }
+  }
+  // 手指点：拇指尖、食指尖和它们之间的线
+  if (cam.on && cam.hands.length) {
+    for (const hd of cam.hands) {
+      ctx.strokeStyle = 'rgba(140,210,255,.7)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(hd.th.x, hd.th.y); ctx.lineTo(hd.ix.x, hd.ix.y); ctx.stroke();
+      for (const q of [hd.th, hd.ix]) { ctx.fillStyle = 'rgba(220,245,255,.95)'; ctx.beginPath(); ctx.arc(q.x, q.y, 3.2, 0, 6.283); ctx.fill(); }
+      ctx.strokeStyle = 'rgba(220,245,255,.5)'; ctx.beginPath(); ctx.arc(hd.mid.x, hd.mid.y, 9, 0, 6.283); ctx.stroke();
+    }
+  }
+  // 鼠标悬停时的十字准星
+  if (ptrHover && !ptrs.size && liveBy !== 'ptr') {
+    ctx.strokeStyle = 'rgba(200,230,255,.4)'; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.moveTo(ptrHover.x - 9, ptrHover.y); ctx.lineTo(ptrHover.x + 9, ptrHover.y);
+    ctx.moveTo(ptrHover.x, ptrHover.y - 9); ctx.lineTo(ptrHover.x, ptrHover.y + 9); ctx.stroke();
+  }
+}
+
+/* ================= 保存图片：WebGL 画面 + 叠加层合成一张 PNG ================= */
+function save() {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.drawImage(glc, 0, 0); x.drawImage(ov, 0, 0);
+  x.font = `${Math.round(11 * DPR)}px ${MONO}`; x.fillStyle = 'rgba(200,230,255,.6)';
+  x.fillText('Scan Frame · lotushansstudio-maker.github.io/visual', 16 * DPR, H - 14 * DPR);
+  c.toBlob(b => {
+    if (!b) return;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `scan-frame-${Date.now()}.png`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast(tr('saved'), 1000);
+  }, 'image/png');
+}
+
+setMode(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
