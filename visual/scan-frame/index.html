@@ -42,6 +42,10 @@
     background:rgba(8,14,28,.8);border:1px solid var(--line);font-size:13px;opacity:0;pointer-events:none;transition:opacity .4s;
     text-align:center;max-width:86vw;line-height:1.6}
   #file{display:none}
+  /* 第一次定格后界面退场，只留画面（和原作一样干净） */
+  .title,.hint,.ctrl{transition:opacity 1.2s}
+  body.quiet .title, body.quiet .hint{opacity:0}
+  body.quiet .ctrl{opacity:.28} body.quiet .ctrl:hover{opacity:1}
   @media (max-width:600px){
     .hint{font-size:11px} .title p{letter-spacing:.2em}
     .title h1{font-size:24px} .title p{margin-top:3px}
@@ -88,6 +92,7 @@ const ctx = ov.getContext('2d');
 const toastEl = document.getElementById('toast');
 
 /* ================= 双语（和主页共用 lotus-lang） ================= */
+const ORDER = [1, 2, 3, 4, 0];                 // 原作出场顺序
 const MODES = [
   { zh: '扫描线', en: 'Scanline', tag: 'SCAN', f: "y′ = y + k·L(x,y)" },
   { zh: '线描', en: 'Sketch', tag: 'SOBEL', f: '|∇I| = √(Gx² + Gy²)' },
@@ -134,7 +139,7 @@ function toast(msg, ms = 2600) {
 }
 
 /* ================= WebGL 基础 ================= */
-let mode = 0;
+let mode = 1;
 const src = { kind: 'scene', tex: null, w: 1, h: 1, mirror: 0 };   // scene 程序化场景 / cam 摄像头 / photo 照片
 applyLang();
 if (!gl) { toast(tr('noGL'), 1e9); throw new Error('no webgl'); }
@@ -228,33 +233,32 @@ void main(){
     float l=lum(v-vec2(d.x,0.)),r=lum(v+vec2(d.x,0.));
     float bl=lum(v-d),b=lum(v-vec2(0.,d.y)),br=lum(v+vec2(d.x,-d.y));
     float gx=-tl-2.*l-bl+tr+2.*r+br, gy=tl+2.*t+tr-bl-2.*b-br;
-    float e=smoothstep(.1,.45,length(vec2(gx,gy)));
-    float L=lumB(v);
-    float hatch=step(.62,fract((px.x+px.y)/(5.*uDpr)))*(1.-smoothstep(.12,.42,L))*.45;
-    vec3 paper=vec3(.93,.915,.875)+(hash(floor(px/uDpr))-.5)*.035;
-    col=mix(paper,vec3(.17,.16,.19),max(e,hatch));
+    float e=smoothstep(.12,.75,length(vec2(gx,gy)));
+    vec3 sc=texture2D(uSrc,v).rgb;
+    vec3 paper=vec3(.955,.952,.935)+(hash(floor(px/uDpr))-.5)*.02;
+    col=mix(paper,sc*.6+vec3(.18,.18,.12),e*.62);           // 边缘带一点原画面的颜色
   } else if(uMode<2.5){
     /* 色阶：亮度切成四档，黄色版错位两像素，像丝网印刷 */
-    float L=lumB(v), Ly=lumB(v+uSrcPx*vec2(2.,-1.));
-    col=vec3(.03,.25,.08);
-    col=mix(col,vec3(.05,.6,.16),step(.2,L));
-    col=mix(col,vec3(.96,.88,.14),step(.42,Ly));
-    col=mix(col,vec3(.97,.96,.92),step(.64,L));
+    vec2 o=uSrcPx*2.6;
+    float b0=step(.42,lumB(v)), b1=step(.42,lumB(v+vec2(o.x,o.y))), b2=step(.42,lumB(v-vec2(o.x*.6,o.y*1.4)));
+    col=mix(vec3(.03,.52,.1),vec3(.975,.97,.95),b0);
+    if(b1!=b0) col=vec3(.98,.86,.08);
+    else if(b2!=b0) col=mix(vec3(.2,.55,1.),vec3(1.,.55,.8),step(.5,hash(floor(px/(3.*uDpr)))));
   } else if(uMode<3.5){
     /* 四叉树：细节多（方差大）的格子继续一分为四，平的地方保持大格 */
-    float sz=112.*uDpr; vec2 c0=floor(px/sz)*sz; float m=0.; bool done=false;
+    float sz=112.*uDpr; vec2 c0=floor(px/sz)*sz; float m=0.; bool done=false; vec3 mc=vec3(0.);
     for(int k=0;k<5;k++){
       if(!done){
         c0=floor(px/sz)*sz; float s=0.,s2=0.;
-        for(int a=0;a<3;a++) for(int b=0;b<3;b++){ float q=lum((c0+(vec2(a,b)+.5)/3.*sz)/uRes); s+=q; s2+=q*q; }
-        m=s/9.; float var=s2/9.-m*m;
+        mc=vec3(0.);
+        for(int a=0;a<3;a++) for(int b=0;b<3;b++){ vec3 rc=texture2D(uSrc,(c0+(vec2(a,b)+.5)/3.*sz)/uRes).rgb; float q=dot(rc,vec3(.299,.587,.114)); mc+=rc; s+=q; s2+=q*q; }
+        m=s/9.; mc/=9.; float var=s2/9.-m*m;
         if(var<.0022||k==4) done=true; else sz*=.5;
       }
     }
-    float g=floor(m*5.)/4.;
-    col=mix(vec3(.13,.15,.18),vec3(.93,.92,.88),g);
+    col=floor(mc*6.)/5.*.85+mc*.15;                 // 原色略微分档
     vec2 f=px-c0; float edge=step(min(f.x,f.y),.9*uDpr);
-    col=mix(col,vec3(.05,.06,.08),edge*.9);
+    col=mix(col,vec3(.03,.035,.045),edge*.92);
   } else {
     /* 晒蓝：阈值 + 有序抖动，蓝白两色 */
     float L=lumB(v);
@@ -269,11 +273,8 @@ void main(){
 /* ---- 4. 背景：原画面压暗、去色、偏冷，留出"黑底"让发光的框跳出来 ---- */
 const FS_BG = COMMON + `varying vec2 v; uniform sampler2D uSrc; uniform vec2 uRes; uniform float uT, uDim;
 void main(){
-  float L=dot(texture2D(uSrc,v).rgb,vec3(.299,.587,.114));
-  vec3 c=vec3(.62,.74,1.)*pow(L,1.15)*uDim;
-  c+=(hash(v*uRes+fract(uT)*100.)-.5)*.018;
-  vec2 q=v-.5; c*=1.-dot(q,q)*1.1;
-  gl_FragColor=vec4(max(c,0.)+vec3(.004,.007,.016),1.);
+  vec3 c=texture2D(uSrc,v).rgb*uDim;             // 和原作一样：框外就是原画面
+  gl_FragColor=vec4(c,1.);
 }`;
 
 /* ---- 5. 贴片（贴纸 / 实时框）：细白边 + 定格时一闪 ---- */
@@ -297,7 +298,7 @@ void main(){ vec3 c=texture2D(uTex,v).rgb*.227;
   c+=(texture2D(uTex,v+uDir*3.231).rgb+texture2D(uTex,v-uDir*3.231).rgb)*.07;
   gl_FragColor=vec4(c,1.); }`;
 const FS_FINAL = `precision highp float; varying vec2 v; uniform sampler2D uTex, uBloom; uniform float uK;
-void main(){ vec3 c=texture2D(uTex,v).rgb+texture2D(uBloom,v).rgb*uK; c=1.-exp(-c*1.08); gl_FragColor=vec4(pow(c,vec3(.97)),1.); }`;
+void main(){ gl_FragColor=vec4(texture2D(uTex,v).rgb+texture2D(uBloom,v).rgb*uK,1.); }`;
 
 function compile(vs, fs) {
   const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh);
@@ -375,9 +376,10 @@ function freeze() {
   gl.uniform4f(u.uTR, r.x0 / CW, 1 - r.y1 / CH, r.x1 / CW, 1 - r.y0 / CH);
   gl.uniform2f(u.uSize, pw, ph); gl.uniform1f(u.uA, 1); gl.uniform1f(u.uBorder, 0); gl.uniform1f(u.uFlash, 0); gl.uniform1f(u.uDpr, DPR);
   bindT(0, cur.tex, u.uTex); draw();
+  document.body.classList.add('quiet');
   stickers.push({ ...o, r, mode, t0: performance.now(), no: ++stickerNo });
   while (stickers.length > MAX_ST) freeFB(stickers.shift());
-  setMode(mode + 1);                         // 定格一次，自动换下一种滤镜
+  setMode(ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length]);   // 定格一次，按原作顺序换下一种滤镜
   return true;
 }
 function endLive(doFreeze) { if (live && doFreeze) freeze(); live = null; liveBy = ''; }
@@ -722,22 +724,22 @@ function frame(now) {
   // 合成：暗背景 → 贴纸 → 实时框
   target(comp); gl.disable(gl.BLEND);
   { const u = use(P.bg); bindT(0, srcFB.tex, u.uSrc); gl.uniform2f(u.uRes, W, H); gl.uniform1f(u.uT, t);
-    gl.uniform1f(u.uDim, src.kind === 'cam' ? .42 : .3); draw(); }
+    gl.uniform1f(u.uDim, src.kind === 'scene' ? .55 : 1); draw(); }
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   const ur = use(P.rect); gl.uniform1f(ur.uDpr, DPR);
   for (const s of stickers) {
-    const age = (now - s.t0) / 1000, e = Math.min(1, age / .45), sc = 1 + .035 * (1 - e) * (1 - e);
+    const age = (now - s.t0) / 1000, e = Math.min(1, age / .45), sc = 1;
     const cx = (s.r.x0 + s.r.x1) / 2, cy = (s.r.y0 + s.r.y1) / 2, hw = (s.r.x1 - s.r.x0) / 2 * sc, hh = (s.r.y1 - s.r.y0) / 2 * sc;
     gl.uniform4f(ur.uR, (cx - hw) / CW, 1 - (cy + hh) / CH, (cx + hw) / CW, 1 - (cy - hh) / CH);
     gl.uniform4f(ur.uTR, 0, 0, 1, 1); gl.uniform2f(ur.uSize, s.w, s.h);
-    gl.uniform1f(ur.uA, 1); gl.uniform1f(ur.uBorder, .55); gl.uniform1f(ur.uFlash, Math.max(0, 1 - age / .5) ** 2 * .8);
+    gl.uniform1f(ur.uA, 1); gl.uniform1f(ur.uBorder, 0); gl.uniform1f(ur.uFlash, 0);
     bindT(0, s.tex, ur.uTex); draw();
   }
   if (has) {
     gl.uniform4f(ur.uR, R.x0 / CW, 1 - R.y1 / CH, R.x1 / CW, 1 - R.y0 / CH);
     gl.uniform4f(ur.uTR, R.x0 / CW, 1 - R.y1 / CH, R.x1 / CW, 1 - R.y0 / CH);
     gl.uniform2f(ur.uSize, (R.x1 - R.x0) * DPR, (R.y1 - R.y0) * DPR);
-    gl.uniform1f(ur.uA, liveA); gl.uniform1f(ur.uBorder, .9); gl.uniform1f(ur.uFlash, 0);
+    gl.uniform1f(ur.uA, liveA); gl.uniform1f(ur.uBorder, 0); gl.uniform1f(ur.uFlash, 0);
     bindT(0, fxCur.tex, ur.uTex); draw();
   }
   gl.disable(gl.BLEND);
@@ -748,7 +750,7 @@ function frame(now) {
     target(bl2); { const u = use(P.blur); gl.uniform2f(u.uDir, 1.6 / bl1.w, 0); bindT(0, bl1.tex, u.uTex); draw(); }
     target(bl1); { const u = use(P.blur); gl.uniform2f(u.uDir, 0, 1.6 / bl1.h); bindT(0, bl2.tex, u.uTex); draw(); }
   }
-  target(null); { const u = use(P.fin); bindT(0, comp.tex, u.uTex); bindT(1, bl1.tex, u.uBloom); gl.uniform1f(u.uK, .95); draw(); }
+  target(null); { const u = use(P.fin); bindT(0, comp.tex, u.uTex); bindT(1, bl1.tex, u.uBloom); gl.uniform1f(u.uK, 0); draw(); }
 
   drawOverlay(now, t);
   if (wantSave) { wantSave = false; save(); }
@@ -761,50 +763,10 @@ function drawOverlay(now, t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.textBaseline = 'alphabetic';
-  // 贴纸编号
-  ctx.font = `10px ${MONO}`;
-  for (const s of stickers) {
-    const age = now - s.t0, a = Math.min(1, age / 600) * Math.max(0, Math.min(1, (5200 - age) / 1200));   // 编号几秒后淡出，免得盖在新贴纸上
-    if (a <= 0) continue;
-    ctx.fillStyle = `rgba(190,225,255,${.55 * a})`;
-    const y = s.r.y1 + 13 < CH - 4 ? s.r.y1 + 13 : s.r.y1 - 6;
-    ctx.fillText(`No.${String(s.no).padStart(2, '0')} · ${MODES[s.mode].tag} · ${Math.round(s.r.x1 - s.r.x0)}×${Math.round(s.r.y1 - s.r.y0)}`, s.r.x0, y);
-  }
   const R = liveShown;
-  if (R && (R.x1 - R.x0) > 2) {
-    const a = liveA, w = R.x1 - R.x0, h = R.y1 - R.y0;
-    ctx.strokeStyle = `rgba(215,238,255,${.95 * a})`; ctx.lineWidth = 2;
-    const L = Math.min(18, w / 3, h / 3);
-    ctx.beginPath();     // 四个角的直角括号
-    [[R.x0, R.y0, 1, 1], [R.x1, R.y0, -1, 1], [R.x0, R.y1, 1, -1], [R.x1, R.y1, -1, -1]].forEach(([x, y, sx, sy]) => {
-      ctx.moveTo(x - 4 * sx, y + L * sy); ctx.lineTo(x - 4 * sx, y - 4 * sy); ctx.lineTo(x + L * sx, y - 4 * sy);
-    });
-    ctx.stroke();
-    // 左侧和上方的刻度尺（像原作外侧的网格刻度）
-    ctx.lineWidth = 1; ctx.strokeStyle = `rgba(170,210,255,${.45 * a})`; ctx.beginPath();
-    for (let y = 0; y <= h; y += 8) { const big = Math.round(y) % 40 === 0; ctx.moveTo(R.x0 - 9, R.y0 + y); ctx.lineTo(R.x0 - 9 - (big ? 10 : 4), R.y0 + y); }
-    for (let x = 0; x <= w; x += 8) { const big = Math.round(x) % 40 === 0; ctx.moveTo(R.x0 + x, R.y0 - 9); ctx.lineTo(R.x0 + x, R.y0 - 9 - (big ? 8 : 3)); }
-    ctx.stroke();
-    // 公式 + 尺寸
-    ctx.fillStyle = `rgba(200,232,255,${.9 * a})`; ctx.font = `11px ${MONO}`;
-    const m = MODES[mode];
-    const top = R.y0 - 24 > 70 ? R.y0 - 24 : R.y1 + 18;
-    ctx.fillText(`${m[lang]} · ${m.tag}  ${m.f}`, R.x0, top);
-    const dim = `${Math.round(w)} × ${Math.round(h)}`;
-    ctx.fillStyle = `rgba(200,232,255,${.6 * a})`;
-    if (ctx.measureText(`${m[lang]} · ${m.tag}  ${m.f}`).width + ctx.measureText(dim).width + 16 < w) ctx.fillText(dim, R.x1 - ctx.measureText(dim).width, top);
-    if (mode === 0) {
-      ctx.fillText(`k=7.0  λ=${(3.2).toFixed(1)}px  t=${t.toFixed(1)}s`, R.x0, top === R.y1 + 18 ? top + 14 : top + 0 - 14);
-    }
-  }
-  // 手指点：拇指尖、食指尖和它们之间的线
-  if (cam.on && cam.hands.length) {
-    for (const hd of cam.hands) {
-      ctx.strokeStyle = 'rgba(140,210,255,.7)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(hd.th.x, hd.th.y); ctx.lineTo(hd.ix.x, hd.ix.y); ctx.stroke();
-      for (const q of [hd.th, hd.ix]) { ctx.fillStyle = 'rgba(220,245,255,.95)'; ctx.beginPath(); ctx.arc(q.x, q.y, 3.2, 0, 6.283); ctx.fill(); }
-      ctx.strokeStyle = 'rgba(220,245,255,.5)'; ctx.beginPath(); ctx.arc(hd.mid.x, hd.mid.y, 9, 0, 6.283); ctx.stroke();
-    }
+  if (R && (R.x1 - R.x0) > 2) {                 // 原作：只有一圈细白线
+    ctx.strokeStyle = `rgba(255,255,255,${.92 * liveA})`; ctx.lineWidth = 1.5;
+    ctx.strokeRect(R.x0, R.y0, R.x1 - R.x0, R.y1 - R.y0);
   }
   // 鼠标悬停时的十字准星
   if (ptrHover && !ptrs.size && liveBy !== 'ptr') {
@@ -828,7 +790,7 @@ function save() {
   }, 'image/png');
 }
 
-setMode(0);
+setMode(ORDER[0]);
 requestAnimationFrame(frame);
 </script>
 </body>
