@@ -31,7 +31,7 @@
   button.on{border-color:rgba(124,200,255,.8);color:#fff;box-shadow:0 0 14px rgba(80,170,255,.35) inset}
   .bottom{position:fixed;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;
     align-items:center;gap:10px;pointer-events:none}
-  .chips{display:flex;gap:6px;pointer-events:auto;max-width:94vw;overflow-x:auto;padding:2px 4px;scrollbar-width:none}
+  .chips{display:none!important;gap:6px;pointer-events:auto;max-width:94vw;overflow-x:auto;padding:2px 4px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
   .chips button{white-space:nowrap;padding:7px 12px}
   .chips button .k{opacity:.45;margin-right:5px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px}
@@ -97,12 +97,12 @@ const MODES = [
 ];
 const I18 = {
   zh: { title: '扫描取景', sub: 'Scan Frame', cam: '摄像头', photo: '照片', scene: '场景', save: '保存', clear: '清空',
-    hint: '<b>拖出一个框</b>，框里变成扫描线 · <b>松手</b>定格成贴纸 · 手机<b>双指</b>撑框<br><span class="l2"><b>摄像头</b>：双手拇指食指撑框，放下手定格；或单手<b>捏住拖动</b> · 键盘 <b>1–5</b> 换滤镜 · <b>Z</b> 撤销</span>',
-    noGL: '你的浏览器不支持 WebGL，换个浏览器试试吧', camLoad: '加载手势识别', camOn: '举起双手，用拇指和食指撑出一个框；放下手就定格。单手：捏住拖动，松开定格',
+    hint: '<b>拖出一个框</b>，<b>松手</b>定格 · 手机<b>双指</b>撑框 · 每定格一次自动换一种滤镜<br><span class="l2"><b>摄像头</b>：举起手，框跟着走，<b>拇指碰食指</b>就定格（双手可撑出框的大小） · <b>Z</b> 撤销</span>',
+    noGL: '你的浏览器不支持 WebGL，换个浏览器试试吧', camLoad: '加载手势识别', camOn: '举起手，取景框跟着手走；拇指碰一下食指就定格，再张开碰一下定格下一张',
     camOff: '摄像头没打开 —— 用鼠标或手指拖框一样能玩', camFail: '手势识别没加载成功 —— 画面仍是摄像头，用鼠标或手指拖框', saved: '已保存图片', cleared: '已清空', undo: '撤销一张' },
   en: { title: 'Scan Frame', sub: '扫描取景', cam: 'Camera', photo: 'Photo', scene: 'Scene', save: 'Save', clear: 'Clear',
-    hint: '<b>Drag a frame</b> to see it in scanlines · <b>release</b> to freeze a sticker · <b>two fingers</b> on phones<br><span class="l2"><b>Camera</b>: frame with both thumbs and index fingers, drop hands to freeze; or <b>pinch and drag</b> with one hand · keys <b>1–5</b> filters · <b>Z</b> undo</span>',
-    noGL: 'Your browser does not support WebGL. Please try another browser.', camLoad: 'Loading hand tracking', camOn: 'Raise both hands and frame with thumbs and index fingers; drop them to freeze. One hand: pinch, drag, release',
+    hint: '<b>Drag a frame</b>, <b>release</b> to freeze · <b>two fingers</b> on phones · each freeze switches to the next filter<br><span class="l2"><b>Camera</b>: raise a hand and the frame follows; <b>touch thumb to index</b> to freeze (two hands set the frame size) · <b>Z</b> undo</span>',
+    noGL: 'Your browser does not support WebGL. Please try another browser.', camLoad: 'Loading hand tracking', camOn: 'Raise a hand and the frame follows it; tap thumb to index to freeze, open and tap again for the next one',
     camOff: 'Camera unavailable. Drag with mouse or finger instead.', camFail: 'Hand tracking failed to load. Camera stays on; drag with mouse or finger.', saved: 'Image saved', cleared: 'Cleared', undo: 'Undone' },
 };
 let lang = new URLSearchParams(location.search).get('lang');
@@ -377,6 +377,8 @@ function freeze() {
   bindT(0, cur.tex, u.uTex); draw();
   stickers.push({ ...o, r, mode, t0: performance.now(), no: ++stickerNo });
   while (stickers.length > MAX_ST) freeFB(stickers.shift());
+  setMode(mode + 1);                         // 定格一次，自动换下一种滤镜
+  return true;
 }
 function endLive(doFreeze) { if (live && doFreeze) freeze(); live = null; liveBy = ''; }
 
@@ -547,7 +549,7 @@ async function loadRuntime(modelP) {
 }
 
 const cam = { on: false, stream: null, video: document.createElement('video'), lm: null, loading: false, lastVT: -1,
-  hands: [], pinch: false, pinchA: null, twoSince: 0, lost: 0, seg: null, segVT: -1, hasMask: false };
+  hands: [], lost: 0, openRect: null, armed: true, lastFreeze: 0, flash: 0, seg: null, segVT: -1, hasMask: false };
 cam.video.muted = true; cam.video.playsInline = true;
 const bCam = document.getElementById('bCam');
 bCam.onclick = e => { e.stopPropagation(); toggleCam(); };
@@ -616,28 +618,35 @@ function handStep(now) {
   let res; try { res = cam.lm.detectForVideo(v, now); } catch (e) { return; }
   const hs = (res.landmarks || []).map(l => {
     const th = lm2s(l[4]), ix = lm2s(l[8]), size = dist(lm2s(l[0]), lm2s(l[9]));
-    return { th, ix, mid: { x: (th.x + ix.x) / 2, y: (th.y + ix.y) / 2 }, size, pr: dist(th, ix) / Math.max(size, 1) };
+    const w = lm2s(l[0]), k = lm2s(l[9]);
+    return { th, ix, mid: { x: (th.x + ix.x) / 2, y: (th.y + ix.y) / 2 }, palm: { x: (w.x + k.x) / 2, y: (w.y + k.y) / 2 }, size, pr: dist(th, ix) / Math.max(size, 1) };
   });
   cam.hands = hs;
   if (hs.length) lastInput = now;
-  if (hs.length >= 2) {
-    // 双手：各取拇指尖和食指尖的中点当一个角
-    cam.lost = 0; cam.pinch = false;
-    if (liveBy !== 'hand') { if (liveBy === 'ptr') return; if (liveBy === 'demo') endLive(false); startLive('hand'); cam.twoSince = now; }
-    live = { x0: hs[0].mid.x, y0: hs[0].mid.y, x1: hs[1].mid.x, y1: hs[1].mid.y };
-    cam.mode = 'two';
-  } else if (hs.length === 1) {
-    const h = hs[0];
-    if (cam.mode === 'two' && liveBy === 'hand') {       // 一只手放下 → 定格
-      if (now - cam.twoSince > 500) endLive(true); else endLive(false);
-      cam.mode = ''; return;
-    }
-    // 单手：捏住拖动，松开定格（带迟滞，防抖）
-    if (!cam.pinch && h.pr < .3) { cam.pinch = true; cam.pinchA = { ...h.mid }; if (liveBy === 'demo') endLive(false); if (liveBy !== 'ptr') startLive('hand'); cam.mode = 'one'; }
-    else if (cam.pinch && h.pr > .45) { cam.pinch = false; if (liveBy === 'hand') endLive(true); cam.mode = ''; }
-    if (cam.pinch && liveBy === 'hand') live = { x0: cam.pinchA.x, y0: cam.pinchA.y, x1: h.mid.x, y1: h.mid.y };
-  } else if (liveBy === 'hand') {
-    if (++cam.lost > 4) { endLive(cam.mode === 'two' ? now - cam.twoSince > 500 : true); cam.mode = ''; cam.pinch = false; }
+  /* 手势：框跟着手走，拇指尖碰食指尖 → 定格（并自动换下一种滤镜）
+     双手：两只手的拇指食指中点撑成对角；单手：框以手掌为中心
+     碰之前那一刻的框才是想要的（碰的时候手指会移动），所以记住"张开时"最后的框 */
+  if (!hs.length) {
+    if (liveBy === 'hand' && ++cam.lost > 6) { endLive(false); cam.openRect = null; }
+    return;
+  }
+  cam.lost = 0;
+  if (liveBy === 'ptr') return;
+  if (liveBy !== 'hand') { if (liveBy === 'demo') endLive(false); startLive('hand'); cam.openRect = null; }
+  let r;
+  if (hs.length >= 2) r = { x0: hs[0].mid.x, y0: hs[0].mid.y, x1: hs[1].mid.x, y1: hs[1].mid.y };
+  else {
+    const h = hs[0], m = Math.min(CW, CH), w = m * (CW > CH ? .62 : .78), hh = m * (CW > CH ? .46 : .9);
+    r = { x0: h.palm.x - w / 2, y0: h.palm.y - hh / 2, x1: h.palm.x + w / 2, y1: h.palm.y + hh / 2 };
+  }
+  const touching = hs.some(h => h.pr < .2), allOpen = hs.every(h => h.pr > .36);
+  if (allOpen || !cam.openRect) { cam.openRect = r; }
+  live = cam.openRect;
+  if (allOpen) cam.armed = true;
+  if (touching && cam.armed && now - cam.lastFreeze > 600) {
+    cam.armed = false; cam.lastFreeze = now;
+    liveShown = { ...norm(cam.openRect) };
+    cam.pending = true;                           // 下一帧先把整个框的滤镜算完再定格，避免边缘缺块
   }
 }
 
@@ -708,6 +717,7 @@ function frame(now) {
     gl.uniform1f(u.uFb, src.kind === 'photo' ? .0 : .86);
     draw(); gl.disable(gl.SCISSOR_TEST); fxCur = nxt;
   }
+  if (cam.pending) { cam.pending = false; if (liveBy === 'hand') freeze(); }
 
   // 合成：暗背景 → 贴纸 → 实时框
   target(comp); gl.disable(gl.BLEND);
@@ -779,10 +789,10 @@ function drawOverlay(now, t) {
     ctx.fillStyle = `rgba(200,232,255,${.9 * a})`; ctx.font = `11px ${MONO}`;
     const m = MODES[mode];
     const top = R.y0 - 24 > 70 ? R.y0 - 24 : R.y1 + 18;
-    ctx.fillText(`${m.tag}  ${m.f}`, R.x0, top);
+    ctx.fillText(`${m[lang]} · ${m.tag}  ${m.f}`, R.x0, top);
     const dim = `${Math.round(w)} × ${Math.round(h)}`;
     ctx.fillStyle = `rgba(200,232,255,${.6 * a})`;
-    if (ctx.measureText(`${m.tag}  ${m.f}`).width + ctx.measureText(dim).width + 16 < w) ctx.fillText(dim, R.x1 - ctx.measureText(dim).width, top);
+    if (ctx.measureText(`${m[lang]} · ${m.tag}  ${m.f}`).width + ctx.measureText(dim).width + 16 < w) ctx.fillText(dim, R.x1 - ctx.measureText(dim).width, top);
     if (mode === 0) {
       ctx.fillText(`k=7.0  λ=${(3.2).toFixed(1)}px  t=${t.toFixed(1)}s`, R.x0, top === R.y1 + 18 ? top + 14 : top + 0 - 14);
     }
