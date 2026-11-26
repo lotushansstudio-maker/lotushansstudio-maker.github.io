@@ -16,7 +16,7 @@
 | 点一下 · Tap | 溅起水花，涟漪一圈圈荡开 · a splash and spreading ripples |
 | 按住再松开 · Hold, then release | 光球下潜蓄力，按得越久爆发越大 · the orb dives and charges; the longer you hold, the bigger the burst |
 | 第二根手指 · Second finger | 在那个位置直接溅起水花 · splash right there |
-| 「摄像头」/ `C` · Camera | 对着镜头挥手控制光球，用力一挥溅起水花 · wave at the lens to steer; a hard swipe splashes |
+| 「摄像头」/ `C` · Camera | 举起一只手：手掌移动带光球走，捏住拇指和食指（或握拳）蓄力，松开爆发，快速一挥溅起水花 · raise one hand: your palm steers, pinch (or fist) to charge, open to burst, a quick swipe splashes |
 | 方向键 / WASD + 空格 · Arrows / WASD + space | 键盘移动光球，空格相当于按住 · move with keys, space = hold |
 | `1` `2` `3` / 「换色」· Colour | 夜海 · 熔金 · 极光 · Night Sea, Molten Gold, Aurora |
 | 「EN / 中」 | 中英切换，和主页共用 · switch language (shared with the homepage) |
@@ -44,7 +44,7 @@ The orb's press and each splash are written into this height field; screen point
 
 - 原生 WebGL，无外部库；点精灵 + 叠加混合产生发光感 · Raw WebGL, no libraries; additive point sprites
 - CPU 上的波动方程高度场，固定 60Hz 步长 · Wave-equation height field on the CPU at a fixed 60 Hz step
-- 摄像头用帧差法找“在动的像素”求重心，不下载任何模型 · Camera control by frame differencing, no ML model to download
+- 摄像头用 MediaPipe 手部关键点（单手，21 个点）：手掌中心定位 + 自适应平滑，捏合/握拳带回差判断；运行库走 npmmirror 镜像，模型从国内镜像下载并校验 SHA-256，失败自动换到本站 · Camera control with MediaPipe hand landmarks (one hand): palm-centre tracking with adaptive smoothing, pinch/fist with hysteresis; runtime from the npmmirror mirror, checksum-verified model with same-site fallback
 - 单文件 `index.html`，手机 / 电脑 / 触摸 / 竖屏都能玩 · Single file; works on phone and desktop, touch and portrait
 
 > 摄像头需要 HTTPS，GitHub Pages 默认就是；本地双击打开时鼠标 / 触摸 / 键盘都能玩。The camera needs HTTPS (GitHub Pages provides it).
