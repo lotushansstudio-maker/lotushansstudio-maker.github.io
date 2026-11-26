@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>光笼 · Light Cage</title>
+<meta name="description" content="Pull a glowing 3D cage open with your hands and let a particle sculpture scatter into a Lorenz flow. 双手撑开发光的立方光笼，让粒子雕塑散成洛伦兹流。">
+<meta property="og:title" content="光笼 · Light Cage">
+<meta property="og:description" content="Hold a glowing sculpture in your palm, pull a 3D cage open with both hands, make a fist to reshape it. 掌心托起发光雕塑，双手撑开光笼，握拳换形。">
+<meta property="og:image" content="https://lotushansstudio-maker.github.io/visual/light-cage/og.jpg">
+<meta property="og:url" content="https://lotushansstudio-maker.github.io/visual/light-cage/">
+<style>
+  :root{ --ink:#e9eef8; --dim:rgba(233,238,248,.55); --line:rgba(233,238,248,.14); }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#020308;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  canvas#c,canvas#o{position:fixed;inset:0;width:100%;height:100%;display:block}
+  canvas#o{pointer-events:none}
+  canvas#c{touch-action:none;cursor:grab}
+  canvas#c:active{cursor:grabbing}
+  .title{position:fixed;left:max(20px,env(safe-area-inset-left));top:max(18px,env(safe-area-inset-top));pointer-events:none}
+  .title h1{font-family:"Songti SC","Noto Serif SC","STSong",Georgia,serif;font-weight:400;
+    font-size:clamp(26px,4.2vw,44px);letter-spacing:.18em}
+  .title p{margin-top:6px;font-size:12px;letter-spacing:.32em;color:var(--dim);text-transform:uppercase}
+  /* 当前雕塑：名字 + 公式（量化元素） */
+  .shape{position:fixed;left:max(20px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));
+    pointer-events:none;transition:opacity .6s}
+  .shape .nm{font-family:"Songti SC","Noto Serif SC","STSong",Georgia,serif;font-size:17px;letter-spacing:.2em}
+  .shape .fx{margin-top:6px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--dim);white-space:pre}
+  .hint{position:fixed;right:max(20px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));
+    font-size:12px;color:var(--dim);letter-spacing:.05em;text-align:right;pointer-events:none;
+    max-width:min(46vw,520px);line-height:1.8;transition:opacity 1.2s}
+  .hint b{color:var(--ink);font-weight:500}
+  .ctrl{position:fixed;right:max(16px,env(safe-area-inset-right));top:max(18px,env(safe-area-inset-top));display:flex;gap:8px}
+  .ctrl button{font:inherit;font-size:12px;letter-spacing:.08em;color:var(--ink);background:rgba(10,14,28,.45);
+    border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .3s,border-color .3s}
+  .ctrl button:hover{background:rgba(40,50,80,.55)}
+  .ctrl button.on{border-color:rgba(140,220,255,.8)}
+  #toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:12px 18px;border-radius:12px;
+    background:rgba(10,14,28,.78);border:1px solid var(--line);font-size:13px;line-height:1.7;opacity:0;pointer-events:none;
+    transition:opacity .4s;text-align:center;max-width:86vw}
+  html[lang=en] .title h1{letter-spacing:.08em}
+  /* 竖屏手机：提示移到底部居中，雕塑信息移到标题下方 */
+  @media (max-width:640px){
+    .title p{letter-spacing:.2em}
+    .ctrl{gap:6px} .ctrl button{padding:7px 11px}
+    .shape{bottom:auto;top:calc(max(18px,env(safe-area-inset-top)) + 70px)}
+    .shape .nm{font-size:14px} .shape .fx{font-size:10.5px}
+    .hint{left:50%;right:auto;transform:translateX(-50%);text-align:center;max-width:92vw;width:92vw;font-size:11.5px}
+    html[lang=en] .title h1{font-size:24px;letter-spacing:.04em}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="o"></canvas>
+<div class="title"><h1 id="tT">光笼</h1><p id="tS">Light Cage</p></div>
+<div class="shape" id="shape"><div class="nm" id="sN"></div><div class="fx" id="sF"></div></div>
+<div class="ctrl">
+  <button id="bCam" title="快捷键 C">摄像头</button>
+  <button id="bNext" title="快捷键 N">换形</button>
+  <button id="bLang">EN</button>
+</div>
+<div class="hint" id="hint"></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =========================================================
+   光笼 Light Cage
+   - 几万个粒子组成“数学雕塑”（水母 / 洛伦兹 / 百合 / 三叶结 / 黄金角球），全部由公式生成
+   - 雕塑住在一个线框立方体（光笼）里：粒子的局部坐标 [-1,1]³ 通过笼子 8 个顶点做三线性插值映射到屏幕，
+     所以笼子被手拉歪、拉长时，里面的粒子会跟着一起变形
+   - 三种状态：凝聚（弹簧拉回雕塑）/ 散开（沿洛伦兹方程流动）/ 汇聚（握拳，向中心收缩，松开换形）
+   - 摄像头：MediaPipe 手部关键点（最多两只手）；没有摄像头时鼠标 / 触摸 / 键盘一样能玩
+   ========================================================= */
+
+const cv = document.getElementById('c'), ov = document.getElementById('o');
+const gl = cv.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
+const ctx = ov.getContext('2d');
+const toastEl = document.getElementById('toast');
+
+// ================= 双语（和主页共用 lotus-lang） =================
+const SHAPES_I18 = {
+  zh: ['水母', '洛伦兹吸引子', '百合', '三叶结', '黄金角球'],
+  en: ['Jellyfish', 'Lorenz Attractor', 'Lily', 'Trefoil Knot', 'Golden-Angle Sphere'],
+};
+const FORMULA = [
+  'r(θ,φ) = 1 + 0.08·sin8φ·sin2θ\npulse = sin(2.4t)',
+  'ẋ = σ(y − x)   ẏ = x(ρ − z) − y   ż = xy − βz\nσ = 10   ρ = 28   β = 8/3',
+  'r = 0.15 + 1.15u   h = 1.5u − 1.1u³\n6 petals · 2π/6',
+  'x = (0.7 + 0.35cos3t)·cos2t\nz = (0.7 + 0.35cos3t)·sin2t   y = 0.35·sin3t',
+  'θₙ = n · 137.508°   zₙ = 1 − 2n/N\nN = 1597 (Fibonacci)',
+];
+const I18 = {
+  zh: { title: '光笼', sub: 'Light Cage', cam: '摄像头', next: '换形', camT: '快捷键 C', nextT: '快捷键 N',
+    hint: '<b>拖动</b> 转动光笼 · <b>点一下</b> 散开 / 凝聚<br><b>长按</b> 汇聚，松开换形 · <b>滚轮 / 双指</b> 缩放<br><b>摄像头</b>：双手拇指和食指撑开光笼 · 握拳换形',
+    noGL: '你的浏览器不支持 WebGL，换个浏览器试试吧',
+    camOn: '摊开一只手：雕塑浮在掌心<br>双手拇指和食指撑出光笼，拉大就散开、合拢就凝聚<br>握拳汇聚，松开换形 · 单手捏住可拖出光笼，伸出食指能拨开粒子',
+    camOff: '摄像头没打开 —— 用鼠标或触摸一样能玩', camLoad: '加载手势识别', camFail: '手势识别没加载成功 —— 用鼠标或触摸一样能玩', n: '粒子' },
+  en: { title: 'Light Cage', sub: '光笼', cam: 'Camera', next: 'Reshape', camT: 'Shortcut C', nextT: 'Shortcut N',
+    hint: '<b>Drag</b> to turn the cage · <b>tap</b> to scatter / gather<br><b>Hold</b> to collapse, release to reshape · <b>wheel / pinch</b> to zoom<br><b>Camera</b>: thumbs and index fingers pull the cage open · fist to reshape',
+    noGL: 'Your browser does not support WebGL. Please try another browser.',
+    camOn: 'Open one hand: the sculpture floats above your palm<br>Thumbs and index fingers of both hands pull the cage; wider scatters, closer gathers<br>Make a fist to collapse, open to reshape · one hand: pinch and drag a cage, point to poke the particles',
+    camOff: 'Camera unavailable. Mouse and touch work just as well.', camLoad: 'Loading hand tracking', camFail: 'Hand tracking failed to load. Mouse and touch work just as well.', n: 'particles' },
+};
+let lang = new URLSearchParams(location.search).get('lang');
+try { lang = lang || localStorage.getItem('lotus-lang'); } catch (e) {}
+lang = lang || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+if (lang !== 'zh' && lang !== 'en') lang = 'zh';
+const tr = k => I18[lang][k];
+function applyLang() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.getElementById('tT').textContent = tr('title');
+  document.getElementById('tS').textContent = tr('sub');
+  const bc = document.getElementById('bCam'), bn = document.getElementById('bNext');
+  bc.textContent = tr('cam'); bc.title = tr('camT'); bn.textContent = tr('next'); bn.title = tr('nextT');
+  document.getElementById('bLang').textContent = lang === 'zh' ? 'EN' : '中';
+  document.getElementById('hint').innerHTML = tr('hint');
+  showShapeLabel();
+}
+document.getElementById('bLang').onclick = e => {
+  e.stopPropagation(); lang = lang === 'zh' ? 'en' : 'zh';
+  try { localStorage.setItem('lotus-lang', lang); } catch (e) {}
+  applyLang();
+};
+function toast(msg, ms = 2600) {
+  toastEl.innerHTML = msg; toastEl.style.opacity = 1;
+  clearTimeout(toast.t); toast.t = setTimeout(() => toastEl.style.opacity = 0, ms);
+}
+
+/* ---------- 画布尺寸 ---------- */
+let W = 0, H = 0, dpr = 1;
+function resize() {
+  W = innerWidth; H = innerHeight; dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = ov.width = Math.round(W * dpr); cv.height = ov.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (gl) gl.viewport(0, 0, cv.width, cv.height);
+}
+resize(); addEventListener('resize', resize);
+
+/* ---------- 粒子 ---------- */
+const MOBILE = Math.min(screen.width, screen.height) < 700 || /Mobi|Android/i.test(navigator.userAgent);
+const N = MOBILE ? 16000 : 36000;
+const px = new Float32Array(N), py = new Float32Array(N), pz = new Float32Array(N);
+const vx = new Float32Array(N), vy = new Float32Array(N), vz = new Float32Array(N);
+const PA = new Float32Array(N), PB = new Float32Array(N), PC = new Float32Array(N);   // 每个粒子的形状参数
+const cr = new Float32Array(N), cg = new Float32Array(N), cb = new Float32Array(N);   // 当前颜色
+const tr_ = new Float32Array(N), tg = new Float32Array(N), tb = new Float32Array(N);  // 目标颜色
+const sx = new Float32Array(N), sy = new Float32Array(N);                             // 上一帧屏幕坐标（拨粒子用）
+for (let i = 0; i < N; i++) {
+  PA[i] = Math.random(); PB[i] = Math.random(); PC[i] = Math.random();
+  px[i] = (Math.random() - .5) * .1; py[i] = (Math.random() - .5) * .1; pz[i] = (Math.random() - .5) * .1;
+}
+const fract = x => x - Math.floor(x);
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+
+// 洛伦兹轨迹（雕塑形态用）：局部坐标 lx = X/20, ly = (Z−25)/22, lz = Y/20
+const LZ_M = 14000, LZ = new Float32Array(LZ_M * 3);
+(() => { let x = 1, y = 1, z = 1; const dt = 0.005;
+  for (let i = -1500; i < LZ_M; i++) {
+    const dx = 10 * (y - x), dy = x * (28 - z) - y, dz = x * y - 8 / 3 * z;
+    x += dx * dt; y += dy * dt; z += dz * dt;
+    if (i >= 0) { LZ[i * 3] = x / 20; LZ[i * 3 + 1] = (z - 25) / 22; LZ[i * 3 + 2] = y / 20; }
+  } })();
+// 黄金角球：N 个斐波那契点
+const FB = 1597, FBP = new Float32Array(FB * 3);
+for (let n = 0; n < FB; n++) { const z = 1 - 2 * (n + .5) / FB, r = Math.sqrt(1 - z * z), th = n * 2.399963;
+  FBP[n * 3] = r * Math.cos(th); FBP[n * 3 + 1] = z; FBP[n * 3 + 2] = r * Math.sin(th); }
+
+/* 雕塑形状：给定参数 a,b,c 和时间 T，输出局部坐标（大致在 [-0.85,0.85]） */
+const H3 = [0, 0, 0];
+function home(s, a, b, c, T) {
+  let x, y, z;
+  if (s === 0) {                       // 水母：伞盖 + 口腕 + 触手，一张一缩
+    const P = Math.sin(T * 2.4);
+    if (c < 0.5) {
+      const t = a * 1.5, ph = b * 6.2832, rr = (1 + 0.08 * Math.sin(8 * ph) * Math.sin(2 * t)) * (1 + 0.07 * P);
+      x = rr * Math.sin(t) * Math.cos(ph) * 0.8; z = rr * Math.sin(t) * Math.sin(ph) * 0.8; y = 0.55 * Math.cos(t) * (1 - 0.08 * P) + 0.2;
+    } else if (c < 0.6) {
+      const k = Math.floor(b * 4), f = fract(b * 4), u = a, ph = k * 1.5708 + u * 2.2 + Math.sin(u * 6 - T * 2) * 0.3;
+      const r = 0.12 + 0.1 * Math.sin(u * 9 + T) + (f - .5) * 0.12;
+      x = r * Math.cos(ph); z = r * Math.sin(ph); y = 0.22 - u * 1.25;
+    } else {
+      const k = Math.floor(b * 14), u = a, ph = k / 14 * 6.2832, r0 = 0.66 * (1 - u * 0.45) * (1 + 0.05 * P);
+      const w = Math.sin(u * 9 + k - T * 2.4) * 0.12 * (0.4 + u);
+      x = r0 * Math.cos(ph) + w; z = r0 * Math.sin(ph) + Math.cos(u * 7 + k - T * 2) * 0.1 * u; y = 0.2 - u * 2.2 + (fract(b * 14) - .5) * 0.02;
+    }
+    H3[0] = x * 0.6; H3[1] = (y + 0.62) * 0.6; H3[2] = z * 0.6; return H3;
+  }
+  if (s === 1) {                       // 洛伦兹：粒子沿轨迹缓缓流动
+    let k = (Math.floor(a * LZ_M) + Math.floor(T * 90)) % LZ_M; k *= 3;
+    H3[0] = LZ[k] * 0.9 + (b - .5) * 0.012; H3[1] = LZ[k + 1] * 0.9 + (c - .5) * 0.012; H3[2] = LZ[k + 2] * 0.9; return H3;
+  }
+  if (s === 2) {                       // 百合：六片外翻花瓣 + 花丝 + 花药
+    const o = 1 + 0.04 * Math.sin(T * 1.3);
+    if (c < 0.86) {
+      const k = Math.floor(b * 6), u = Math.pow(a, 0.8), half = 0.42 * Math.pow(Math.sin(Math.PI * Math.min(u * 1.05, 1)), 0.7);
+      const off = (fract(b * 6) * 2 - 1) * half, ph = k / 6 * 6.2832 + off;
+      const rr = (0.15 + 1.15 * u) * o, yy = -0.6 + 1.5 * u - 1.1 * u * u * u, cup = 0.12 * (1 - Math.abs(off) / (half + 1e-6)) * Math.sin(Math.PI * u);
+      x = (rr - cup) * Math.cos(ph); z = (rr - cup) * Math.sin(ph); y = yy + cup * 0.5;
+    } else if (c < 0.97) {
+      const k = Math.floor(b * 6), u = a, ph = k / 6 * 6.2832 + 0.26;
+      x = 0.55 * u * Math.cos(ph) * o; z = 0.55 * u * Math.sin(ph) * o; y = -0.5 + 1.2 * u;
+    } else {
+      const k = Math.floor(b * 6), ph = k / 6 * 6.2832 + 0.26, r = 0.035 * Math.sqrt(a), q = fract(b * 6) * 6.2832;
+      x = 0.55 * Math.cos(ph) * o + r * Math.cos(q); z = 0.55 * Math.sin(ph) * o + r * Math.sin(q); y = 0.7 + (a - .5) * 0.05;
+    }
+    H3[0] = x * 0.62; H3[1] = (y - 0.05) * 0.62; H3[2] = z * 0.62; return H3;
+  }
+  if (s === 3) {                       // 三叶结：(2,3) 环面结，粒子沿管子流动
+    const t = a * 6.2832 + T * 0.12, e = 0.01;
+    const kx = t2 => (0.7 + 0.35 * Math.cos(3 * t2)) * Math.cos(2 * t2), kz = t2 => (0.7 + 0.35 * Math.cos(3 * t2)) * Math.sin(2 * t2), ky = t2 => 0.35 * Math.sin(3 * t2);
+    const X = kx(t), Y = ky(t), Z = kz(t);
+    let tx = kx(t + e) - X, ty = ky(t + e) - Y, tz = kz(t + e) - Z; const tl = Math.hypot(tx, ty, tz); tx /= tl; ty /= tl; tz /= tl;
+    let nx = -tz, nz = tx, ny = 0; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;   // 法线 = 切线 × 上
+    const bx = ty * nz - tz * ny, by = tz * nx - tx * nz, bz = tx * ny - ty * nx;
+    const r = 0.075 * Math.sqrt(b), q = c * 6.2832, cq = Math.cos(q) * r, sq = Math.sin(q) * r;
+    H3[0] = (X + nx * cq + bx * sq) * 0.78; H3[1] = (Y + ny * cq + by * sq) * 0.78; H3[2] = (Z + nz * cq + bz * sq) * 0.78; return H3;
+  }
+  // 黄金角球：斐波那契点 + 沿 13/21 螺旋线连线，表面有涟漪
+  const n = Math.floor(a * FB); let X = FBP[n * 3], Y = FBP[n * 3 + 1], Z = FBP[n * 3 + 2];
+  if (b > 0.45) { const m = Math.min(FB - 1, n + (c < .5 ? 13 : 21)), f = fract(b * 7.3);
+    X += (FBP[m * 3] - X) * f; Y += (FBP[m * 3 + 1] - Y) * f; Z += (FBP[m * 3 + 2] - Z) * f; const l = Math.hypot(X, Y, Z) || 1; X /= l; Y /= l; Z /= l; }
+  const R = 0.72 * (1 + 0.06 * Math.sin(Y * 9 - T * 2.2)) * (b > 0.45 ? 1 : 1 + (c - .5) * 0.02);
+  H3[0] = X * R; H3[1] = Y * R; H3[2] = Z * R; return H3;
+}
+// 每个雕塑的颜色
+function shapeColor(s, a, b, c) {
+  let r, g, bl;
+  if (s === 0) { if (c < 0.5) { const rib = 0.5 + 0.5 * Math.cos(b * 6.2832 * 8); r = .25 + .2 * rib; g = .7 + .15 * rib; bl = 1; }
+                 else if (c < 0.6) { r = .78; g = .62; bl = 1; } else { r = .5; g = .88; bl = 1; } }
+  else if (s === 1) { r = 1; g = .3 + .4 * a; bl = .18 + .2 * a; }
+  else if (s === 2) { if (c < 0.86) { const mid = 1 - Math.abs(fract(b * 6) * 2 - 1); r = 1; g = .86 - .12 * mid * (1 - a); bl = .78 - .2 * mid * (1 - a); }
+                      else if (c < 0.97) { r = 1; g = .82; bl = .45; } else { r = 1; g = .5; bl = .18; } }
+  else if (s === 3) { r = 1; g = .68 + .22 * b; bl = .25 + .3 * b; }
+  else { r = .62 + .38 * c * (b > .45 ? 1 : .4); g = .5; bl = 1 - .15 * c; }
+  if (a * 997 % 1 < 0.05) { r = g = bl = 1; }   // 少量白色高光粒子
+  H3[0] = r; H3[1] = g; H3[2] = bl; return H3;
+}
+const SHAPE_GLOW = [[.25, .65, 1], [1, .32, .18], [1, .78, .6], [1, .7, .3], [.65, .45, 1]];
+
+/* ---------- 状态机：凝聚 formed / 散开 free / 汇聚 gather ---------- */
+const st = { mode: 'formed', shape: 0, t0: 0, by: '' };
+let glowC = SHAPE_GLOW[0].slice(), introDone = false;
+function setTargetColors() { for (let i = 0; i < N; i++) { shapeColor(st.shape, PA[i], PB[i], PC[i]); tr_[i] = H3[0]; tg[i] = H3[1]; tb[i] = H3[2]; } }
+function scatter() {
+  if (st.mode === 'free') return;
+  st.mode = 'free'; st.t0 = performance.now(); introDone = true;
+  for (let i = 0; i < N; i++) {                // 向外炸开：沿径向 + 一点随机
+    const l = Math.hypot(px[i], py[i], pz[i]) + 0.05, k = (0.004 + 0.009 * PC[i]) / l;
+    vx[i] += px[i] * k + (Math.random() - .5) * 0.006; vy[i] += py[i] * k + (Math.random() - .5) * 0.006; vz[i] += pz[i] * k + (Math.random() - .5) * 0.006;
+  }
+}
+function gather(by) { if (st.mode === 'gather') return; st.mode = 'gather'; st.t0 = performance.now(); st.by = by; }
+function reform(next) {
+  if (next) { st.shape = (st.shape + 1) % 5; setTargetColors(); showShapeLabel(); }
+  st.mode = 'formed'; st.t0 = performance.now(); st.by = '';
+}
+const shapeEl = document.getElementById('shape');
+function showShapeLabel() {
+  document.getElementById('sN').textContent = SHAPES_I18[lang][st.shape];
+  document.getElementById('sF').textContent = FORMULA[st.shape] + '\nN = ' + N.toLocaleString('en') + ' ' + tr('n');
+  shapeEl.style.opacity = 0; requestAnimationFrame(() => shapeEl.style.opacity = 1);
+}
+setTargetColors(); for (let i = 0; i < N; i++) { cr[i] = tr_[i]; cg[i] = tg[i]; cb[i] = tb[i]; }
+
+/* ---------- 光笼：8 个屏幕顶点（x, y, 深度 d∈[0,1]） ----------
+   顶点顺序：前面 0 左上 1 右上 2 右下 3 左下；后面 4–7 同序 */
+const V = new Float32Array(24), VT = new Float32Array(24);
+let cageA = 0, cageAT = 0;                      // 线框透明度
+let yaw = 0.55, pitch = -0.38, userScale = 1, boxOpen = 0;
+const BOX = [[-1, 1, -1], [1, 1, -1], [1, -1, -1], [-1, -1, -1], [-1, 1, 1], [1, 1, 1], [1, -1, 1], [-1, -1, 1]];
+function boxTarget(cx, cy, s, out) {            // 透视投影一个旋转的正方体
+  const cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  for (let i = 0; i < 8; i++) {
+    let [x, y, z] = BOX[i];
+    [x, z] = [x * cyw + z * syw, -x * syw + z * cyw];
+    [y, z] = [y * cp - z * sp, y * sp + z * cp];
+    const f = 5 / (5 + z);
+    out[i * 3] = cx + x * s * f; out[i * 3 + 1] = cy - y * s * f; out[i * 3 + 2] = clamp((z + 1.75) / 3.5, 0, 1);
+  }
+}
+let tips = null;                                // 手指实际位置（笼子顶点被拉开时画虚线连过去）
+function quadTarget(q, out, fingers) {          // 由前面四个点（手指）推出整个笼子
+  let cx = 0, cy = 0; for (const p of q) { cx += p[0]; cy += p[1]; } cx /= 4; cy /= 4;
+  // 保持笼子不要太扁 / 太窄：高宽比限制在 0.5–1.8
+  const wq = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
+  const hq = (Math.hypot(q[3][0] - q[0][0], q[3][1] - q[0][1]) + Math.hypot(q[2][0] - q[1][0], q[2][1] - q[1][1])) / 2;
+  const fy = hq < wq * 0.5 ? wq * 0.5 / Math.max(hq, 1) : 1, fx = wq < hq / 1.8 ? hq / 1.8 / Math.max(wq, 1) : 1;
+  tips = fingers && (fy > 1 || fx > 1) ? q.map(p => p.slice()) : null;
+  q = q.map(p => [cx + (p[0] - cx) * fx, cy + (p[1] - cy) * fy]);
+  const diag = (Math.hypot(q[0][0] - q[2][0], q[0][1] - q[2][1]) + Math.hypot(q[1][0] - q[3][0], q[1][1] - q[3][1])) / 2;
+  const ang = -0.7 + 0.12 * Math.sin(performance.now() / 2600), ox = Math.cos(ang) * diag * 0.16, oy = Math.sin(ang) * diag * 0.16;
+  for (let i = 0; i < 4; i++) {
+    out[i * 3] = q[i][0]; out[i * 3 + 1] = q[i][1]; out[i * 3 + 2] = 0;
+    out[(i + 4) * 3] = cx + (q[i][0] - cx) * 0.74 + ox; out[(i + 4) * 3 + 1] = cy + (q[i][1] - cy) * 0.74 + oy; out[(i + 4) * 3 + 2] = 1;
+  }
+  return diag;
+}
+function orderQuad(pts) {                       // 按角度排成 左上→右上→右下→左下
+  let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= 4; cy /= 4;
+  const s = pts.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+  let k = 0, best = 1e9; s.forEach((p, i) => { const v = p[0] + p[1]; if (v < best) { best = v; k = i; } });
+  return [0, 1, 2, 3].map(i => s[(k + i) % 4]);
+}
+const baseSize = () => Math.min(W * (W < 640 ? 0.27 : 0.34), H * 0.25);
+boxTarget(W / 2, H * 0.52, baseSize() * 0.8, V);
+
+/* ---------- WebGL ---------- */
+if (!gl) { toast(tr('noGL'), 1e9); throw new Error('no webgl'); }
+function prog(vs, fs) {
+  const mk = (t, s) => { const h = gl.createShader(t); gl.shaderSource(h, s); gl.compileShader(h);
+    if (!gl.getShaderParameter(h, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(h)); return h; };
+  const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p;
+}
+// 背景：压暗的摄像头画面 + 笼心光晕 + 暗角
+const PB_ = prog(`attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}`, `
+precision mediump float;
+uniform sampler2D uV; uniform float uHas, uDpr, uGA, uGR; uniform vec2 uRes, uVS, uGC; uniform vec3 uGCol;
+void main(){
+  vec2 p = gl_FragCoord.xy / uDpr; p.y = uRes.y - p.y;
+  vec2 q = p / uRes;
+  vec3 col = mix(vec3(0.010,0.013,0.028), vec3(0.002,0.003,0.008), q.y);
+  if (uHas > 0.5) {
+    vec2 uv = (q - 0.5) * uVS + 0.5; uv.x = 1.0 - uv.x;          // 镜像
+    vec3 c = texture2D(uV, uv).rgb; float l = dot(c, vec3(0.299,0.587,0.114));
+    col += mix(vec3(l), c, 0.35) * vec3(0.26,0.28,0.34);           // 压暗、去饱和、偏冷
+  }
+  float d = length(p - uGC) / uGR;
+  col += uGCol * uGA * exp(-d * d * 2.2);
+  float v = length((q - 0.5) * vec2(1.0, 1.15));
+  col *= 1.0 - smoothstep(0.35, 0.95, v) * 0.75;
+  gl_FragColor = vec4(col, 1.0);
+}`);
+const PP = prog(`
+attribute vec2 aP; attribute float aS; attribute vec3 aC;
+uniform vec2 uRes; uniform float uDpr; varying vec3 vC;
+void main(){ vec2 n = aP / uRes * 2.0 - 1.0; n.y = -n.y; gl_Position = vec4(n, 0.0, 1.0); gl_PointSize = aS * uDpr; vC = aC; }`, `
+precision mediump float; varying vec3 vC;
+void main(){ vec2 q = gl_PointCoord * 2.0 - 1.0; float r2 = dot(q, q); if (r2 > 1.0) discard;
+  gl_FragColor = vec4(vC * (exp(-r2 * 3.5) * 1.15), 1.0); }`);
+const quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+const pBuf = gl.createBuffer(), DATA = new Float32Array(N * 6);
+gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, DATA.byteLength, gl.DYNAMIC_DRAW);
+const vidTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, vidTex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+const U = (p, n) => gl.getUniformLocation(p, n);
+const ub = { V: U(PB_, 'uV'), Has: U(PB_, 'uHas'), Dpr: U(PB_, 'uDpr'), GA: U(PB_, 'uGA'), GR: U(PB_, 'uGR'), Res: U(PB_, 'uRes'), VS: U(PB_, 'uVS'), GC: U(PB_, 'uGC'), GCol: U(PB_, 'uGCol') };
+const up = { Res: U(PP, 'uRes'), Dpr: U(PP, 'uDpr') };
+const aB = gl.getAttribLocation(PB_, 'a'), aP = gl.getAttribLocation(PP, 'aP'), aS = gl.getAttribLocation(PP, 'aS'), aC = gl.getAttribLocation(PP, 'aC');
+
+/* ---------- 摄像头手势：MediaPipe（最多两只手） ----------
+   运行库：npmmirror 镜像优先，失败换同站的圣诞树仓库 mp/；模型下载后校验 SHA-256 */
+const MP_LOCAL = new URL('/ascii-xmas-tree/mp/', location.href).href;
+const RT_SOURCES = [['npmmirror', 'https://registry.npmmirror.com/@mediapipe/tasks-vision/0.10.14/files/'], ['GitHub', MP_LOCAL]];
+const MODEL_SHA = 'fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1';
+const MODEL_SOURCES = [
+  ['mirror A', 'https://cdn.jsdmirror.com/npm/ptmaker-vision-models@1.0.0/hand_landmarker.task'],
+  ['mirror B', 'https://jsd.onmicrosoft.cn/npm/ptmaker-vision-models@1.0.0/hand_landmarker.task'],
+  ['GitHub', MP_LOCAL + 'hand_landmarker.task'],
+];
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timeout')), ms))]);
+function probe(url, init) {
+  const c = new AbortController(), id = setTimeout(() => c.abort(), 7000);
+  return fetch(url, { ...init, signal: c.signal }).then(r => { clearTimeout(id); if (!r.ok) throw 0; r.body && r.body.cancel(); });
+}
+function fastestFirst(list, urlOf, init) {
+  return new Promise(res => {
+    let fails = 0, done = false;
+    list.forEach(item => probe(urlOf(item), init).then(() => {
+      if (!done) { done = true; res([item, ...list.filter(x => x !== item)]); }
+    }).catch(() => { if (++fails === list.length && !done) res(list); }));
+  });
+}
+async function download(url, onP) {
+  const c = new AbortController(); let timer;
+  const kick = () => { clearTimeout(timer); timer = setTimeout(() => c.abort(), 15000); };
+  kick();
+  try {
+    const r = await fetch(url, { signal: c.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const total = +r.headers.get('content-length') || 7819105;
+    const reader = r.body.getReader(), chunks = []; let got = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; kick(); onP(Math.min(99, got / total * 100 | 0)); }
+    const out = new Uint8Array(got); let o = 0; for (const ch of chunks) { out.set(ch, o); o += ch.length; }
+    return out;
+  } finally { clearTimeout(timer); }
+}
+async function loadModel(onP) {
+  const order = await fastestFirst(MODEL_SOURCES, s => s[1], { headers: { Range: 'bytes=0-1023' } });
+  let err;
+  for (const [name, url] of order) {
+    try {
+      const buf = await download(url, onP);
+      if (crypto.subtle) {
+        const hex = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map(b => b.toString(16).padStart(2, '0')).join('');
+        if (hex !== MODEL_SHA) throw new Error('checksum');
+      }
+      return buf;
+    } catch (e) { err = e; console.warn('model source failed', name, e); }
+  }
+  throw err || new Error('model');
+}
+async function loadRuntime(modelP) {
+  const order = await fastestFirst(RT_SOURCES, s => s[1] + 'wasm/vision_wasm_internal.js');
+  let err;
+  for (const [name, base] of order) {
+    try {
+      const { FilesetResolver, HandLandmarker } = await withTimeout(import(base + 'vision_bundle.mjs'), 25000, 'runtime');
+      const fileset = await FilesetResolver.forVisionTasks(base + 'wasm');
+      const model = await modelP;
+      const make = delegate => withTimeout(HandLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetBuffer: model.slice(), delegate }, runningMode: 'VIDEO', numHands: 2,
+        minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5
+      }), 90000, 'init');
+      try { return await make('GPU'); } catch (e) { console.warn('GPU 不可用，改用 CPU', e); return await make('CPU'); }
+    } catch (e) { err = e; console.warn('runtime source failed', name, e); }
+  }
+  throw err || new Error('runtime');
+}
+
+const cam = { on: false, stream: null, video: document.createElement('video'), lm: null, loading: false, lastVT: -1,
+  hands: [], seen: 0, fistT: 0, fist: false, pinchA: null, lastCage: 0, bigPrev: false };
+cam.video.muted = true; cam.video.playsInline = true;
+const bCam = document.getElementById('bCam');
+bCam.onclick = toggleCam;
+async function toggleCam() {
+  if (cam.loading) return;
+  if (cam.on) { cam.stream.getTracks().forEach(t => t.stop()); cam.on = false; cam.hands = []; bCam.classList.remove('on'); return; }
+  try {
+    cam.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+    cam.video.srcObject = cam.stream; await cam.video.play();
+  } catch (e) { toast(tr('camOff')); return; }
+  cam.on = true; bCam.classList.add('on');
+  if (cam.lm) { toast(tr('camOn'), 6000); return; }
+  cam.loading = true;
+  try {
+    const modelP = loadModel(p => toast(tr('camLoad') + ' ' + p + '%', 1e9));
+    modelP.catch(() => {});
+    cam.lm = await loadRuntime(modelP);
+    toast(tr('camOn'), 6000);
+  } catch (e) {
+    console.warn(e); toast(tr('camFail'), 4200);
+    cam.stream.getTracks().forEach(t => t.stop()); cam.on = false; bCam.classList.remove('on');
+  }
+  cam.loading = false;
+}
+// 视频按 cover 方式铺满屏幕：关键点 → 屏幕像素（镜像）
+function vidScale() { const vw = cam.video.videoWidth || 640, vh = cam.video.videoHeight || 480; return { vw, vh, s: Math.max(W / vw, H / vh) }; }
+function toScr(l) { const { vw, vh, s } = vidScale(); return [W / 2 + (0.5 - l.x) * vw * s, H / 2 + (l.y - 0.5) * vh * s]; }
+const hd = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function classify(h, prev) {                    // 手势：fist 握拳 / pinch 捏合 / point 食指 / open 张开（带回差）
+  const size = hd(h[0], h[9]) || 0.1;
+  const curled = k => hd(h[k], h[0]) < hd(h[k - 2], h[0]) * 1.05;
+  const c4 = [8, 12, 16, 20].filter(curled).length, c3 = [12, 16, 20].filter(curled).length;
+  const pinch = hd(h[4], h[8]) / size;
+  if (prev === 'fist' ? c4 >= 3 : c4 === 4) return 'fist';
+  if (prev === 'pinch' ? pinch < 0.45 : pinch < 0.28) return 'pinch';
+  if (!curled(8) && c3 === 3) return 'point';
+  return 'open';
+}
+function camProcess(now) {
+  if (!cam.on || !cam.lm || cam.video.readyState < 2 || cam.video.currentTime === cam.lastVT) return;
+  cam.lastVT = cam.video.currentTime;
+  let res = [];
+  try { const r = cam.lm.detectForVideo(cam.video, now); res = r.landmarks || []; } catch (e) { console.warn(e); }
+  // 按手腕 x 排序，平滑时不会两只手对调
+  res = res.slice(0, 2).sort((a, b) => b[0].x - a[0].x);
+  const out = res.map((h, i) => {
+    const old = cam.hands.length === res.length ? cam.hands[i] : null;
+    const pts = h.map((l, k) => { const p = toScr(l); if (old) { p[0] = old.p[k][0] + (p[0] - old.p[k][0]) * 0.55; p[1] = old.p[k][1] + (p[1] - old.p[k][1]) * 0.55; } return p; });
+    return { p: pts, raw: h, g: classify(h, old && old.g), size: hd(h[0], h[9]) * vidScale().vh * vidScale().s };
+  });
+  cam.hands = out; if (out.length) cam.seen = now;
+}
+
+/* ---------- 鼠标 / 触摸 ---------- */
+let lastInput = -1e9, poke = null, pokeT = 0;
+const ptrs = new Map(); let down = null, pinch0 = null, longTimer = 0;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); lastInput = performance.now();
+  if (ptrs.size === 1) {
+    down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, t: performance.now(), moved: false, long: false };
+    clearTimeout(longTimer);
+    longTimer = setTimeout(() => { if (down && !down.moved) { down.long = true; gather('ptr'); } }, 450);
+  } else if (ptrs.size === 2) {
+    clearTimeout(longTimer); const [a, b] = [...ptrs.values()];
+    pinch0 = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), s: userScale }; if (down) down.moved = true;
+  }
+  if (e.pointerType !== 'mouse') { poke = [e.clientX, e.clientY]; pokeT = performance.now(); }
+});
+cv.addEventListener('pointermove', e => {
+  const now = performance.now();
+  if (e.pointerType === 'mouse' || ptrs.has(e.pointerId)) { poke = [e.clientX, e.clientY]; pokeT = now; }
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]); lastInput = now;
+  if (ptrs.size === 2 && pinch0) { const [a, b] = [...ptrs.values()]; userScale = clamp(pinch0.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch0.d, 0.55, 1.9); return; }
+  if (down) {
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) { down.moved = true; clearTimeout(longTimer); }
+    if (down.moved && !down.long) { yaw += (e.clientX - down.lx) * 0.006; pitch = clamp(pitch + (e.clientY - down.ly) * 0.005, -1.2, 1.2); }
+    down.lx = e.clientX; down.ly = e.clientY;
+  }
+});
+function ptrUp(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId); clearTimeout(longTimer);
+  if (ptrs.size < 2) pinch0 = null;
+  if (e.pointerType !== 'mouse') poke = null;
+  if (down && ptrs.size === 0) {
+    if (down.long) reform(true);
+    else if (!down.moved && performance.now() - down.t < 350) { introDone = true; st.mode === 'free' ? reform(false) : st.mode === 'formed' && scatter(); }
+    down = null;
+  }
+}
+cv.addEventListener('pointerup', ptrUp); cv.addEventListener('pointercancel', ptrUp);
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') poke = null; });
+cv.addEventListener('wheel', e => { e.preventDefault(); userScale = clamp(userScale * Math.exp(-e.deltaY * 0.001), 0.55, 1.9); lastInput = performance.now(); }, { passive: false });
+function nextShape() { lastInput = performance.now(); introDone = true; gather('btn'); setTimeout(() => { if (st.mode === 'gather' && st.by === 'btn') reform(true); }, 750); }
+document.getElementById('bNext').onclick = nextShape;
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'c') toggleCam();
+  else if (k === 'n' || k === 'arrowright') nextShape();
+  else if (k === ' ') { e.preventDefault(); lastInput = performance.now(); introDone = true; st.mode === 'free' ? reform(false) : scatter(); }
+});
+
+/* ---------- 控制：决定笼子的目标形状和状态切换 ---------- */
+let autoNext = 3600, handMode = '';
+function control(now) {
+  const hands = cam.on ? cam.hands : [];
+  const live = hands.length && now - cam.seen < 500;
+  handMode = '';
+  let usedHands = false;
+  if (live) {
+    lastInput = now; usedHands = true;
+    const anyFist = hands.some(h => h.g === 'fist');
+    // 握拳（持续 120ms）→ 汇聚；松开 → 换形
+    if (anyFist) { if (!cam.fistT) cam.fistT = now; if (now - cam.fistT > 120 && st.mode !== 'gather') { gather('hand'); introDone = true; } }
+    else { cam.fistT = 0; if (st.mode === 'gather' && st.by === 'hand') reform(true); }
+    let diag = -1;
+    if (hands.length === 2 && !anyFist) {          // 双手：四个指尖就是笼子前面的四个顶点
+      const q = orderQuad([hands[0].p[4], hands[0].p[8], hands[1].p[4], hands[1].p[8]]);
+      diag = quadTarget(q, VT, true); cageAT = 1; cam.lastCage = now; handMode = 'two'; cam.pinchA = null;
+    } else if (hands.length === 1) {
+      const h = hands[0];
+      if (h.g === 'pinch') {                       // 单手捏住拖：从起点到当前点拉出一个笼子
+        const m = [(h.p[4][0] + h.p[8][0]) / 2, (h.p[4][1] + h.p[8][1]) / 2];
+        if (!cam.pinchA) cam.pinchA = m;
+        const a = cam.pinchA, w = Math.abs(m[0] - a[0]), hh = Math.abs(m[1] - a[1]);
+        if (Math.hypot(w, hh) > h.size * 0.6) {
+          const x0 = Math.min(a[0], m[0]), x1 = Math.max(a[0], m[0]), y0 = Math.min(a[1], m[1]), y1 = Math.max(a[1], m[1]);
+          diag = quadTarget([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], VT); cageAT = 1; cam.lastCage = now;
+        }
+        handMode = 'pinch';
+      } else {
+        cam.pinchA = null;
+        if (h.g === 'point') { poke = h.p[8]; pokeT = now; handMode = 'point'; }
+        else if (h.g === 'open' && now - cam.lastCage > 900) {   // 摊开手掌：雕塑浮在掌心上方（第一幕）
+          let cx = 0, cy = 0; for (const k of [0, 5, 9, 13, 17]) { cx += h.p[k][0]; cy += h.p[k][1]; } cx /= 5; cy /= 5;
+          boxTarget(cx, cy - h.size * 1.55, h.size * 1.35, VT); cageAT = 0; handMode = 'palm';
+          if (st.mode === 'free') reform(false);
+          cam.bigPrev = false;
+        }
+      }
+    }
+    // 笼子拉大越过阈值 → 散开；合拢 → 凝聚
+    if (diag > 0) {
+      const m = Math.min(W, H), big = cam.bigPrev ? diag > m * 0.3 : diag > m * 0.42;
+      if (big && !cam.bigPrev && st.mode === 'formed') scatter();
+      if (!big && cam.bigPrev && st.mode === 'free') reform(false);
+      cam.bigPrev = big;
+    }
+    if (handMode === 'point' || (hands.length === 2 && anyFist) || (handMode === 'pinch' && !cam.pinchA)) { /* 保持上一个笼子 */ }
+    if (handMode === '' || handMode === 'point') { if (now - cam.lastCage > 4000 && handMode !== 'palm') usedHands = false; }
+  } else { cam.fistT = 0; cam.pinchA = null; if (st.mode === 'gather' && st.by === 'hand') reform(true); }
+
+  const holdHandCage = cam.on && now - cam.lastCage < 4000;
+  if (!usedHands && !holdHandCage) {
+    // 鼠标 / 自动演示：一个旋转的正方体
+    if (!cam.on) cam.bigPrev = false;
+    tips = null;
+    if (!down || !down.moved) yaw += 0.0022;
+    boxOpen += ((st.mode === 'free' ? 1 : 0) - boxOpen) * 0.05;
+    boxTarget(W / 2, H * (W < 640 ? 0.53 : 0.5), baseSize() * userScale * (0.85 + 0.25 * boxOpen), VT);
+    cageAT = introDone ? 1 : 0;
+    // 7 秒没人操作 → 自动演示：散开 → 流动 → 汇聚 → 换形 → …
+    if (now - lastInput > 7000 || !introDone && now - lastInput > 3000) {
+      if (now > autoNext) {
+        if (st.mode === 'formed') { scatter(); autoNext = now + 5200; }
+        else if (st.mode === 'free') { gather('auto'); autoNext = now + 1300; }
+        else { reform(true); autoNext = now + 4200; }
+      }
+    } else autoNext = Math.max(autoNext, now + 1500);
+  }
+  if (poke && now - pokeT > 1500 && !ptrs.size) poke = null;
+}
+
+/* ---------- 每帧：模拟 + 映射到屏幕 ---------- */
+let lastNow = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const T = now / 1000;
+  camProcess(now);
+  control(now);
+  // 笼子顶点平滑跟随
+  const kv = cam.on && cam.hands.length ? 0.35 : 0.12;
+  for (let i = 0; i < 24; i++) V[i] += (VT[i] - V[i]) * kv;
+  cageA += (cageAT - cageA) * 0.06;
+
+  // 局部 x/y 方向在屏幕上的长度（拨粒子时把屏幕方向换回局部方向）
+  const avg = idx => { let x = 0, y = 0; for (const k of idx) { x += V[k * 3]; y += V[k * 3 + 1]; } return [x / idx.length, y / idx.length]; };
+  const R_ = avg([1, 2, 5, 6]), L_ = avg([0, 3, 4, 7]), T_ = avg([0, 1, 4, 5]), B_ = avg([2, 3, 6, 7]);
+  const ex = [(R_[0] - L_[0]) / 2, (R_[1] - L_[1]) / 2], ey = [(T_[0] - B_[0]) / 2, (T_[1] - B_[1]) / 2];
+  const det = ex[0] * ey[1] - ey[0] * ex[1] || 1;
+  const cageCx = (R_[0] + L_[0]) / 2, cageCy = (T_[1] + B_[1]) / 2;
+  const cageS = Math.hypot(ex[0], ex[1]) + Math.hypot(ey[0], ey[1]);
+  const pr = cageS * 0.32, pr2 = pr * pr;
+
+  const el = now - st.t0, mode = st.mode, sh = st.shape;
+  const spin = T * 0.32, cs = Math.cos(spin), ss = Math.sin(spin), tilt = -0.32, ct = Math.cos(tilt), stl = Math.sin(tilt);
+  const Lb = clamp((el - 250) / 1500, 0, 1), hL = 0.0058;
+  const dotBase = MOBILE ? 2.1 : 1.9, aBase = MOBILE ? 0.62 : 0.48;
+  const V0 = V;
+  let o = 0;
+  for (let i = 0; i < N; i++) {
+    let x = px[i], y = py[i], z = pz[i], ux = vx[i], uy = vy[i], uz = vz[i];
+    if (mode === 'formed') {
+      home(sh, PA[i], PB[i], PC[i], T);
+      // 雕塑自转 + 前倾，让人看到一点顶面
+      let hx = H3[0] * cs + H3[2] * ss, hz = -H3[0] * ss + H3[2] * cs, hy = H3[1];
+      const hy2 = hy * ct - hz * stl; hz = hy * stl + hz * ct; hy = hy2;
+      const r = clamp(el / 1000 * 1.7 - PC[i] * 0.75, 0, 1), k = 0.01 + 0.075 * r;
+      ux = ux * 0.84 + (hx - x) * k; uy = uy * 0.84 + (hy - y) * k; uz = uz * 0.84 + (hz - z) * k;
+    } else if (mode === 'free') {
+      // 洛伦兹方程（局部坐标 ↔ 洛伦兹坐标），刚散开时先靠惯性飞，再被吸引子“捕获”
+      const X = x * 20, Y = z * 20, Z = y * 22 + 25;
+      const dX = 10 * (Y - X), dY = X * (28 - Z) - Y, dZ = X * Y - 2.6667 * Z;
+      ux *= 0.95; uy *= 0.95; uz *= 0.95;   // 炸开的惯性逐渐消失，之后完全按方程走
+      x += dX / 20 * hL * Lb; y += dZ / 22 * hL * Lb; z += dY / 20 * hL * Lb;
+    } else {
+      // 汇聚：向中心收缩并旋转
+      const k = 0.011 + Math.min(el / 900, 1) * 0.01;
+      ux = ux * 0.88 - x * k - z * 0.012; uy = uy * 0.88 - y * k; uz = uz * 0.88 - z * k + x * 0.012;
+    }
+    x += ux; y += uy; z += uz;
+    // 安全边界（洛伦兹本身有界，散开时放宽，避免粒子卡在墙上）
+    const lim = mode === 'free' ? 1.6 : 1.25;
+    if (x > lim || x < -lim) { x = clamp(x, -lim, lim); ux *= -0.4; }
+    if (y > lim || y < -lim) { y = clamp(y, -lim, lim); uy *= -0.4; }
+    if (z > lim || z < -lim) { z = clamp(z, -lim, lim); uz *= -0.4; }
+
+    // 三线性插值：局部 [-1,1]³ → 屏幕
+    const u = (x + 1) * 0.5, v = (y + 1) * 0.5, w = (z + 1) * 0.5;
+    const tfx = V0[0] + (V0[3] - V0[0]) * u, tfy = V0[1] + (V0[4] - V0[1]) * u;
+    const bfx = V0[9] + (V0[6] - V0[9]) * u, bfy = V0[10] + (V0[7] - V0[10]) * u;
+    const tbx = V0[12] + (V0[15] - V0[12]) * u, tby = V0[13] + (V0[16] - V0[13]) * u;
+    const bbx = V0[21] + (V0[18] - V0[21]) * u, bby = V0[22] + (V0[19] - V0[22]) * u;
+    const fx = bfx + (tfx - bfx) * v, fy = bfy + (tfy - bfy) * v, bx = bbx + (tbx - bbx) * v, by = bby + (tby - bby) * v;
+    const X = fx + (bx - fx) * w, Y = fy + (by - fy) * w;
+    const df = V0[2] + (V0[5] - V0[2]) * u, db = V0[14] + (V0[17] - V0[14]) * u;   // 深度（取上沿近似）
+    const d = clamp(df + (db - df) * w, 0, 1);
+
+    // 拨粒子：屏幕上推开，再换回局部方向
+    if (poke) {
+      const dx = X - poke[0], dy = Y - poke[1], d2 = dx * dx + dy * dy;
+      if (d2 < pr2) {
+        const dd = Math.sqrt(d2) + 1e-3, f = (1 - dd / pr) * (1 - dd / pr) * pr * 0.05 / dd;
+        const qx = dx * f, qy = dy * f;
+        ux += (qx * ey[1] - qy * ey[0]) / det; uy += (-qx * ex[1] + qy * ex[0]) / det; uz += (PA[i] - .5) * 0.01;
+      }
+    }
+    px[i] = x; py[i] = y; pz[i] = z; vx[i] = ux; vy[i] = uy; vz[i] = uz;
+
+    // 颜色缓慢过渡；运动越快越亮
+    cr[i] += (tr_[i] - cr[i]) * 0.04; cg[i] += (tg[i] - cg[i]) * 0.04; cb[i] += (tb[i] - cb[i]) * 0.04;
+    const spd = Math.abs(ux) + Math.abs(uy) + Math.abs(uz);
+    const br = aBase * (1 - 0.55 * d) * (0.85 + Math.min(spd * 30, 1.2)) * (mode === 'gather' ? 1.15 : 1);
+    DATA[o++] = X; DATA[o++] = Y; DATA[o++] = dotBase * (1.25 - 0.5 * d);
+    DATA[o++] = cr[i] * br; DATA[o++] = cg[i] * br; DATA[o++] = cb[i] * br;
+  }
+
+  // ---- 绘制 ----
+  const gc = SHAPE_GLOW[sh]; for (let k = 0; k < 3; k++) glowC[k] += (gc[k] - glowC[k]) * 0.04;
+  gl.disable(gl.BLEND);
+  gl.useProgram(PB_);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(aB); gl.vertexAttribPointer(aB, 2, gl.FLOAT, false, 0, 0);
+  const hasV = cam.on && cam.video.readyState >= 2;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, vidTex);
+  if (hasV) { try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cam.video); } catch (e) {} }
+  const vs = vidScale();
+  gl.uniform1i(ub.V, 0); gl.uniform1f(ub.Has, hasV ? 1 : 0); gl.uniform1f(ub.Dpr, dpr);
+  gl.uniform2f(ub.Res, W, H); gl.uniform2f(ub.VS, W / (vs.vw * vs.s), H / (vs.vh * vs.s));
+  gl.uniform2f(ub.GC, cageCx, cageCy); gl.uniform1f(ub.GR, clamp(cageS * 1.1, 60, Math.min(W, H) * 0.5));
+  gl.uniform1f(ub.GA, mode === 'gather' ? 0.14 + Math.min(el / 900, 1) * 0.1 : 0.1);
+  gl.uniform3f(ub.GCol, glowC[0], glowC[1], glowC[2]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.disableVertexAttribArray(aB);
+
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(PP);
+  gl.uniform2f(up.Res, W, H); gl.uniform1f(up.Dpr, dpr);
+  gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, DATA);
+  gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(aS); gl.vertexAttribPointer(aS, 1, gl.FLOAT, false, 24, 8);
+  gl.enableVertexAttribArray(aC); gl.vertexAttribPointer(aC, 3, gl.FLOAT, false, 24, 12);
+  gl.drawArrays(gl.POINTS, 0, N);
+  gl.disableVertexAttribArray(aP); gl.disableVertexAttribArray(aS); gl.disableVertexAttribArray(aC);
+
+  drawOverlay(now);
+}
+
+/* ---------- 叠加层：线框、顶点、手的骨架、拨粒子的光圈 ---------- */
+const EDGES = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+const BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+function drawOverlay(now) {
+  ctx.clearRect(0, 0, W, H);
+  const g = glowC, col = `${(200 + g[0] * 55) | 0},${(200 + g[1] * 55) | 0},${(200 + g[2] * 55) | 0}`;
+  if (cageA > 0.01) {
+    ctx.lineWidth = 1.3; ctx.shadowColor = `rgba(${col},0.9)`; ctx.shadowBlur = 10;
+    for (const [a, b] of EDGES) {
+      const dep = (V[a * 3 + 2] + V[b * 3 + 2]) / 2;
+      ctx.strokeStyle = `rgba(${col},${cageA * (0.85 - 0.45 * dep)})`;
+      ctx.beginPath(); ctx.moveTo(V[a * 3], V[a * 3 + 1]); ctx.lineTo(V[b * 3], V[b * 3 + 1]); ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    for (let i = 0; i < 8; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${cageA * (1 - 0.5 * V[i * 3 + 2])})`;
+      ctx.beginPath(); ctx.arc(V[i * 3], V[i * 3 + 1], i < 4 ? 4 : 3, 0, 6.2832); ctx.fill();
+    }
+  }
+  if (tips && cageA > 0.3 && handMode === 'two') {   // 指尖 → 顶点 的虚线
+    ctx.setLineDash([3, 6]); ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(tips[i][0], tips[i][1]); ctx.lineTo(V[i * 3], V[i * 3 + 1]); ctx.stroke(); }
+    ctx.setLineDash([]);
+  }
+  // 手的骨架：很淡，只做反馈
+  if (cam.on && cam.hands.length && now - cam.seen < 500) {
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    for (const h of cam.hands) {
+      ctx.beginPath(); for (const [a, b] of BONES) { ctx.moveTo(h.p[a][0], h.p[a][1]); ctx.lineTo(h.p[b][0], h.p[b][1]); } ctx.stroke();
+      ctx.fillStyle = h.g === 'fist' ? `rgba(${col},0.9)` : 'rgba(255,255,255,0.5)';
+      for (const k of [4, 8]) { ctx.beginPath(); ctx.arc(h.p[k][0], h.p[k][1], 2.5, 0, 6.2832); ctx.fill(); }
+    }
+    if (cam.pinchA && handMode === 'pinch') { ctx.fillStyle = `rgba(${col},0.8)`; ctx.beginPath(); ctx.arc(cam.pinchA[0], cam.pinchA[1], 4, 0, 6.2832); ctx.fill(); }
+  }
+  if (poke) {
+    const cageS = Math.hypot(V[3] - V[0], V[4] - V[1]) / 2 + Math.hypot(V[9] - V[0], V[10] - V[1]) / 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(poke[0], poke[1], Math.max(18, cageS * 0.32), 0, 6.2832); ctx.stroke();
+  }
+}
+
+applyLang();
+requestAnimationFrame(frame);
+// 提示文字：有操作 10 秒后淡出
+setInterval(() => { document.getElementById('hint').style.opacity = performance.now() - lastInput < 1e4 && lastInput > 0 ? 0.35 : 1; }, 1000);
+</script>
+</body>
+</html>
