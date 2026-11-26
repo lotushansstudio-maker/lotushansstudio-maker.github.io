@@ -611,6 +611,8 @@ function frame(now) {
   control(now);
   // 笼子顶点平滑跟随
   const kv = cam.on && cam.hands.length ? 0.35 : 0.12;
+  // 第一帧（或页面加载时窗口尺寸还是 0）直接就位，不从左上角飞进来
+  if (!frame.ready && W > 0) { V.set(VT); frame.ready = true; }
   for (let i = 0; i < 24; i++) V[i] += (VT[i] - V[i]) * kv;
   cageA += (cageAT - cageA) * 0.06;
 
